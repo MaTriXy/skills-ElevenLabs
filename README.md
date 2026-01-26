@@ -14,7 +14,6 @@ npx skills add elevenlabs/skills
 |-------|-------------|
 | [text-to-speech](./text-to-speech) | Convert text to lifelike speech using ElevenLabs' AI voices |
 | [speech-to-text](./speech-to-text) | Transcribe audio files to text with timestamps |
-| [sound-effects](./sound-effects) | Generate sound effects from text descriptions |
 
 ## Configuration
 
