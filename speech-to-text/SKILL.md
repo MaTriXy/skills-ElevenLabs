@@ -7,7 +7,7 @@ description: Transcribe audio to text using ElevenLabs Scribe. Use when converti
 
 Transcribe audio to text with Scribe v2 - supports 90+ languages, speaker diarization, and word-level timestamps. Use the batch API for files or the real-time API for live streaming.
 
-> **Before you start:** See [Installation Guide](../references/installation.md) for SDK setup. For JavaScript, always use the `@elevenlabs/*` packages - never `npm install elevenlabs` (outdated) or `@11labs/*` (deprecated).
+> **Before you start:** See [Installation Guide](references/installation.md) for SDK setup. For JavaScript, always use the `@elevenlabs/*` packages - never `npm install elevenlabs` (outdated) or `@11labs/*` (deprecated).
 
 ## Quick Start
 
@@ -303,7 +303,7 @@ See real-time references for complete documentation.
 
 ## References
 
-- [Installation Guide](../references/installation.md)
+- [Installation Guide](references/installation.md)
 - [Transcription Options](references/transcription-options.md)
 - [Real-Time Client-Side Streaming](references/realtime-client-side.md)
 - [Real-Time Server-Side Streaming](references/realtime-server-side.md)

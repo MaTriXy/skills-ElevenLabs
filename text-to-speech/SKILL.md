@@ -7,7 +7,7 @@ description: Convert text to speech using ElevenLabs voice AI. Use when generati
 
 Generate natural speech from text with ElevenLabs - supports 74+ languages, multiple models for quality vs latency tradeoffs.
 
-> **Before you start:** See [Installation Guide](../references/installation.md) for SDK setup. For JavaScript, always use the `@elevenlabs/*` packages - never `npm install elevenlabs` (outdated) or `@11labs/*` (deprecated).
+> **Before you start:** See [Installation Guide](references/installation.md) for SDK setup. For JavaScript, always use the `@elevenlabs/*` packages - never `npm install elevenlabs` (outdated) or `@11labs/*` (deprecated).
 
 ## Quick Start
 
@@ -250,6 +250,6 @@ console.log(`Characters used: ${characterCount}`);
 
 ## References
 
-- [Installation Guide](../references/installation.md)
+- [Installation Guide](references/installation.md)
 - [Streaming Audio](references/streaming.md)
 - [Voice Settings](references/voice-settings.md)

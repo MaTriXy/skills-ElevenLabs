@@ -1,44 +1,98 @@
 # Installation
 
-See the [shared installation guide](../../references/installation.md) for complete setup instructions.
+## JavaScript / TypeScript
 
-## Quick Start
-
-**Python:**
-```bash
-pip install elevenlabs
-```
-
-**JavaScript/TypeScript:**
 ```bash
 npm install @elevenlabs/elevenlabs-js
 ```
 
-> **Warning:** Do not use `npm install elevenlabs` - that installs an outdated v1.x SDK. Always use `@elevenlabs/elevenlabs-js`. Also uninstall any `@11labs/*` packages as they are deprecated.
+> **Important:** Always use `@elevenlabs/elevenlabs-js`. The old `elevenlabs` npm package (v1.x) and anything from `@11labs/*` are deprecated and should not be used.
 
-## Text-to-Speech Example
-
-**Python:**
-```python
-from elevenlabs import ElevenLabs
-
-client = ElevenLabs()  # Uses ELEVENLABS_API_KEY env var
-
-audio = client.text_to_speech.convert(
-    text="Hello world",
-    voice_id="JBFqnCBsd6RMkjVDRZzb",
-    model_id="eleven_multilingual_v2"
-)
-```
-
-**JavaScript:**
 ```javascript
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
-const client = new ElevenLabsClient();  // Uses ELEVENLABS_API_KEY env var
+// Option 1: Environment variable (recommended)
+// Set ELEVENLABS_API_KEY in your environment
+const client = new ElevenLabsClient();
 
-const audio = await client.textToSpeech.convert("JBFqnCBsd6RMkjVDRZzb", {
-  text: "Hello world",
-  modelId: "eleven_multilingual_v2",
-});
+// Option 2: Pass directly
+const client = new ElevenLabsClient({ apiKey: "your-api-key" });
 ```
+
+### Migrating from deprecated packages
+
+If you have old packages installed, remove them:
+
+```bash
+# Remove deprecated packages
+npm uninstall elevenlabs @11labs/client @11labs/react
+
+# Install the current packages
+npm install @elevenlabs/elevenlabs-js
+
+# For client-side/browser usage, also install:
+npm install @elevenlabs/client  # Browser client
+npm install @elevenlabs/react   # React hooks
+```
+
+**Import changes:**
+```javascript
+// OLD (deprecated)
+import { ElevenLabsClient } from "elevenlabs";
+import { Scribe } from "@11labs/client";
+import { useScribe } from "@11labs/react";
+
+// NEW (current)
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { Scribe } from "@elevenlabs/client";
+import { useScribe } from "@elevenlabs/react";
+```
+
+## Python
+
+```bash
+pip install elevenlabs
+```
+
+```python
+from elevenlabs import ElevenLabs
+
+# Option 1: Environment variable (recommended)
+# Set ELEVENLABS_API_KEY in your environment
+client = ElevenLabs()
+
+# Option 2: Pass directly
+client = ElevenLabs(api_key="your-api-key")
+```
+
+## cURL / REST API
+
+Set your API key as an environment variable:
+
+```bash
+export ELEVENLABS_API_KEY="your-api-key"
+```
+
+Include in requests via the `xi-api-key` header:
+
+```bash
+curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}" \
+  -H "xi-api-key: $ELEVENLABS_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello world", "model_id": "eleven_multilingual_v2"}'
+```
+
+## Getting an API Key
+
+1. Sign up at [elevenlabs.io](https://elevenlabs.io)
+2. Go to [API Keys](https://elevenlabs.io/app/developers/api-keys)
+3. Click **Create API Key**
+4. Copy and store securely
+
+Or use the `setup-api-key` skill for guided setup.
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `ELEVENLABS_API_KEY` | Your ElevenLabs API key (required) |

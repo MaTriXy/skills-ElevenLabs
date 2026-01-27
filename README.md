@@ -58,7 +58,7 @@ Most skills include examples for:
 
 > **JavaScript SDK Warning:** Always use `@elevenlabs/elevenlabs-js`. Do not use `npm install elevenlabs` (that's an outdated v1.x package). Also uninstall any `@11labs/*` packages as they are deprecated.
 
-See [references/installation.md](./references/installation.md) for complete setup instructions including migration from deprecated packages.
+See the installation guide in any skill's `references/` folder for complete setup instructions including migration from deprecated packages.
 
 ## License
 
