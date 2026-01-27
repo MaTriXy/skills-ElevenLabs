@@ -1,69 +1,44 @@
 # Installation
 
-## Python
+See the [shared installation guide](../../references/installation.md) for complete setup instructions.
 
+## Quick Start
+
+**Python:**
 ```bash
 pip install elevenlabs
 ```
 
-Configure your API key:
-
-```python
-from elevenlabs import ElevenLabs
-
-# Option 1: Pass directly
-client = ElevenLabs(api_key="your-api-key")
-
-# Option 2: Environment variable (recommended)
-# Set ELEVENLABS_API_KEY in your environment
-client = ElevenLabs()  # Automatically reads ELEVENLABS_API_KEY
-```
-
-## JavaScript / TypeScript
-
+**JavaScript/TypeScript:**
 ```bash
 npm install @elevenlabs/elevenlabs-js
 ```
 
-Configure your API key:
+> **Warning:** Do not use `npm install elevenlabs` - that installs an outdated v1.x SDK. Always use `@elevenlabs/elevenlabs-js`. Also uninstall any `@11labs/*` packages as they are deprecated.
 
+## Text-to-Speech Example
+
+**Python:**
+```python
+from elevenlabs import ElevenLabs
+
+client = ElevenLabs()  # Uses ELEVENLABS_API_KEY env var
+
+audio = client.text_to_speech.convert(
+    text="Hello world",
+    voice_id="JBFqnCBsd6RMkjVDRZzb",
+    model_id="eleven_multilingual_v2"
+)
+```
+
+**JavaScript:**
 ```javascript
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
-// Option 1: Pass directly
-const client = new ElevenLabsClient({ apiKey: "your-api-key" });
+const client = new ElevenLabsClient();  // Uses ELEVENLABS_API_KEY env var
 
-// Option 2: Environment variable (recommended)
-// Set ELEVENLABS_API_KEY in your environment
-const client = new ElevenLabsClient();
+const audio = await client.textToSpeech.convert("JBFqnCBsd6RMkjVDRZzb", {
+  text: "Hello world",
+  modelId: "eleven_multilingual_v2",
+});
 ```
-
-## cURL / REST API
-
-Set your API key as an environment variable:
-
-```bash
-export ELEVENLABS_API_KEY="your-api-key"
-```
-
-Include in requests:
-
-```bash
-curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}" \
-  -H "xi-api-key: $ELEVENLABS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello world", "model_id": "eleven_multilingual_v2"}'
-```
-
-## Getting an API Key
-
-1. Sign up at [elevenlabs.io](https://elevenlabs.io)
-2. Go to **Settings** → **API Keys**
-3. Click **Create API Key**
-4. Copy and store securely
-
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `ELEVENLABS_API_KEY` | Your ElevenLabs API key (required) |

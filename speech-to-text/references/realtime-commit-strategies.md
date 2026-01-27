@@ -2,13 +2,17 @@
 
 Control when and how transcripts are finalized in real-time streaming.
 
+## Why Commits Matter
+
+In real-time transcription, the model continuously refines its understanding as more audio arrives. A word that sounds like "their" might become "there" or "they're" once more context is heard. The **commit** mechanism lets you decide when to "lock in" the transcript.
+
 ## Transcript Types
 
 | Type | Description |
 |------|-------------|
-| **Partial** | Interim results as audio is processed, updates frequently |
-| **Committed** | Final results when a commit occurs, stable and accurate |
-| **Committed with Timestamps** | Includes word-level timing data (when enabled) |
+| **Partial** | Interim "best guess" results that update frequently as audio is processed. Use for live feedback (showing text as the user speaks), but don't save these - they may change. |
+| **Committed** | Final, stable results after a commit occurs. Use these as the source of truth for your application - they won't change. |
+| **Committed with Timestamps** | Same as committed, but includes word-level timing data for subtitles, karaoke, or lip-sync. |
 
 ## Manual Commit (Default)
 
@@ -72,7 +76,7 @@ This helps with:
 
 ## Voice Activity Detection (VAD)
 
-Automatically commit when silence is detected. Recommended for microphone-based implementations.
+VAD listens for silence and automatically commits when the speaker pauses. This creates natural transcript segments that match how people actually speak - pausing between sentences and thoughts. Recommended for live microphone input.
 
 ### Configuration
 

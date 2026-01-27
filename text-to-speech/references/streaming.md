@@ -279,17 +279,17 @@ fs.writeFileSync("output.mp3", audio);
 
 | Parameter | Description |
 |-----------|-------------|
-| `chunk_length_schedule` | Array of character thresholds that trigger audio generation (e.g., `[120, 160, 250, 290]`) |
-| `flush` | Set `true` to force immediate audio generation without waiting for threshold |
+| `chunk_length_schedule` | Array of character counts that trigger audio generation. The model waits until it has this many characters before generating audio, which improves quality but adds latency. Lower values = faster response, higher values = better prosody. Example: `[120, 160, 250, 290]` means generate after 120 chars, then after 160 more, etc. |
+| `flush` | Set `true` to force immediate audio generation without waiting for the character threshold. Use at the end of sentences or when you need audio NOW. |
 | `voice_settings` | Adjustable per-message: `stability`, `similarity_boost`, `use_speaker_boost` |
 
 ### Important Notes
 
 - **Inactivity timeout**: Connection closes after 20 seconds without activity. Send a space `" "` to keep alive.
-- **TTFB**: Audio generation starts when text reaches thresholds in `chunk_length_schedule`.
+- **TTFB (Time to First Byte)**: How long until audio starts playing. Affected by `chunk_length_schedule` - the model waits for enough text before generating.
 - **Model limitation**: WebSockets are unavailable for `eleven_v3`.
-- **Best practice**: Use `flush: true` at conversation turn endings to ensure timely generation.
-- **Alignment data**: Word-level timestamps available via `alignment` field for synchronization.
+- **Best practice**: Use `flush: true` at conversation turn endings to ensure the buffered text gets spoken.
+- **Alignment data**: Word-level timestamps available via `alignment` field for lip-sync or captions.
 
 ## Best Practices
 

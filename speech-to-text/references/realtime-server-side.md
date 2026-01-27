@@ -12,6 +12,8 @@ pip install elevenlabs python-dotenv pydub
 npm install @elevenlabs/elevenlabs-js dotenv
 ```
 
+> **Warning:** Do not use `npm install elevenlabs` - that's an outdated v1.x package. Always use `@elevenlabs/elevenlabs-js`. Also avoid any `@11labs/*` packages as they are deprecated.
+
 ## Configuration
 
 Store your API key in a `.env` file:

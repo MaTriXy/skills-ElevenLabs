@@ -6,11 +6,11 @@ Fine-tune voice characteristics for your use case.
 
 | Parameter | Range | Default | Description |
 |-----------|-------|---------|-------------|
-| `stability` | 0.0 - 1.0 | 0.5 | Higher = more consistent, Lower = more expressive |
-| `similarity_boost` | 0.0 - 1.0 | 0.75 | Higher = closer to original, may amplify artifacts |
-| `style` | 0.0 - 1.0 | 0.0 | Style exaggeration (v2+ and v3 models) |
-| `speed` | 0.7 - 1.2 | 1.0 | Speech speed multiplier |
-| `use_speaker_boost` | boolean | true | Enhances voice clarity and similarity |
+| `stability` | 0.0 - 1.0 | 0.5 | How consistent the voice sounds across the generation. Lower = more emotional variation and expressiveness (but can sound erratic). Higher = steady, predictable tone. |
+| `similarity_boost` | 0.0 - 1.0 | 0.75 | How closely to match the original voice sample. Higher sounds more like the source voice but may amplify audio artifacts or background noise from the original recording. |
+| `style` | 0.0 - 1.0 | 0.0 | Exaggerates the unique characteristics of the voice's speaking style (v2+ and v3 models only). Higher values make the voice more "characterful" but can reduce stability. |
+| `speed` | 0.7 - 1.2 | 1.0 | Speech speed multiplier. 1.0 = normal speed, 0.7 = 30% slower, 1.2 = 20% faster. |
+| `use_speaker_boost` | boolean | true | Post-processing that enhances voice clarity and similarity to the original. Generally leave this on unless you're experiencing artifacts. |
 
 ## Python Example
 

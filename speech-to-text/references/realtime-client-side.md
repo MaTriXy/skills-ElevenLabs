@@ -12,6 +12,8 @@ npm install @elevenlabs/react @elevenlabs/elevenlabs-js
 npm install @elevenlabs/client @elevenlabs/elevenlabs-js
 ```
 
+> **Warning:** Do not use packages from `@11labs/*` (e.g., `@11labs/client`, `@11labs/react`) - they are deprecated. Always use the `@elevenlabs/*` namespace.
+
 ## Token Generation
 
 Client-side streaming requires a single-use token to protect your API key. Generate tokens on your backend:
@@ -71,6 +73,7 @@ function TranscriptionComponent() {
 
   return (
     <div>
+      <div>Status: {scribe.status}</div>
       <button onClick={startRecording}>Start</button>
       <button onClick={stopRecording}>Stop</button>
       <p>{transcript}</p>

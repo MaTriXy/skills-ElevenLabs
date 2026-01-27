@@ -7,6 +7,8 @@ description: Convert text to speech using ElevenLabs voice AI. Use when generati
 
 Generate natural speech from text with ElevenLabs - supports 74+ languages, multiple models for quality vs latency tradeoffs.
 
+> **Before you start:** See [Installation Guide](../references/installation.md) for SDK setup. For JavaScript, always use the `@elevenlabs/*` packages - never `npm install elevenlabs` (outdated) or `@11labs/*` (deprecated).
+
 ## Quick Start
 
 ### Python
@@ -85,6 +87,13 @@ for voice in voices.voices:
 
 ## Voice Settings
 
+Fine-tune how the voice sounds:
+
+- **Stability**: How consistent the voice stays. Lower values = more emotional range and variation, but can sound unstable. Higher = steady, predictable delivery.
+- **Similarity boost**: How closely to match the original voice sample. Higher values sound more like the original but may amplify audio artifacts.
+- **Style**: Exaggerates the voice's unique style characteristics (only works with v2+ models).
+- **Speaker boost**: Post-processing that enhances clarity and voice similarity.
+
 ```python
 from elevenlabs import VoiceSettings
 
@@ -92,9 +101,9 @@ audio = client.text_to_speech.convert(
     text="Customize my voice settings.",
     voice_id="JBFqnCBsd6RMkjVDRZzb",
     voice_settings=VoiceSettings(
-        stability=0.5,         # 0-1: Lower = more expressive
-        similarity_boost=0.75, # 0-1: Higher = closer to original
-        style=0.5,             # 0-1: Style exaggeration (v2+ models)
+        stability=0.5,
+        similarity_boost=0.75,
+        style=0.5,
         use_speaker_boost=True
     )
 )
@@ -115,19 +124,23 @@ audio = client.text_to_speech.convert(
 
 ## Text Normalization
 
-Control how numbers, dates, abbreviations are spoken:
+Controls how numbers, dates, and abbreviations are converted to spoken words. For example, "01/15/2026" becomes "January fifteenth, twenty twenty-six":
+
+- `"auto"` (default): Model decides based on context
+- `"on"`: Always normalize (use when you want natural speech)
+- `"off"`: Speak literally (use when you want "zero one slash one five...")
 
 ```python
 audio = client.text_to_speech.convert(
     text="Call 1-800-555-0123 on 01/15/2026",
     voice_id="JBFqnCBsd6RMkjVDRZzb",
-    apply_text_normalization="on"  # "auto", "on", or "off"
+    apply_text_normalization="on"
 )
 ```
 
 ## Request Stitching
 
-Maintain continuity across multiple generations:
+When generating long audio in multiple requests, the audio can have pops, unnatural pauses, or tone shifts at the boundaries. Request stitching solves this by letting each request know what comes before/after it:
 
 ```python
 # First request
@@ -149,13 +162,13 @@ audio2 = client.text_to_speech.convert(
 
 | Format | Description |
 |--------|-------------|
-| `mp3_44100_128` | MP3 44.1kHz 128kbps (default) |
-| `mp3_44100_192` | MP3 44.1kHz 192kbps (Creator+) |
-| `pcm_16000` | PCM 16kHz |
-| `pcm_22050` | PCM 22.05kHz |
-| `pcm_24000` | PCM 24kHz |
-| `pcm_44100` | PCM 44.1kHz (Pro+) |
-| `ulaw_8000` | μ-law 8kHz (telephony/Twilio) |
+| `mp3_44100_128` | MP3 44.1kHz 128kbps (default) - compressed, good for web/apps |
+| `mp3_44100_192` | MP3 44.1kHz 192kbps (Creator+) - higher quality compressed |
+| `pcm_16000` | Raw uncompressed audio at 16kHz - use for real-time processing |
+| `pcm_22050` | Raw uncompressed audio at 22.05kHz |
+| `pcm_24000` | Raw uncompressed audio at 24kHz - good balance for streaming |
+| `pcm_44100` | Raw uncompressed audio at 44.1kHz (Pro+) - CD quality |
+| `ulaw_8000` | μ-law compressed 8kHz - standard for phone systems (Twilio, telephony) |
 
 ## Streaming
 
@@ -237,6 +250,6 @@ console.log(`Characters used: ${characterCount}`);
 
 ## References
 
-- [Installation Guide](references/installation.md)
+- [Installation Guide](../references/installation.md)
 - [Streaming Audio](references/streaming.md)
 - [Voice Settings](references/voice-settings.md)

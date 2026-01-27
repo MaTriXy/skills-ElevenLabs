@@ -7,6 +7,8 @@ description: Transcribe audio to text using ElevenLabs Scribe. Use when converti
 
 Transcribe audio to text with Scribe v2 - supports 90+ languages, speaker diarization, and word-level timestamps. Use the batch API for files or the real-time API for live streaming.
 
+> **Before you start:** See [Installation Guide](../references/installation.md) for SDK setup. For JavaScript, always use the `@elevenlabs/*` packages - never `npm install elevenlabs` (outdated) or `@11labs/*` (deprecated).
+
 ## Quick Start
 
 ### Python
@@ -90,7 +92,7 @@ for (const word of result.words) {
 
 ## Speaker Diarization
 
-Automatically identify up to 48 different speakers:
+Identify WHO said WHAT - the model labels each word with a speaker ID, useful for meetings, interviews, or any multi-speaker audio:
 
 ```python
 result = client.speech_to_text.convert(
@@ -105,7 +107,7 @@ for word in result.words:
 
 ## Keyterm Prompting
 
-Bias transcription toward specific terms (up to 100 terms):
+Help the model recognize specific words it might otherwise mishear - product names, technical jargon, or unusual spellings (up to 100 terms):
 
 ```python
 result = client.speech_to_text.convert(
@@ -150,7 +152,10 @@ print(f"Detected: {result.language_code} ({result.language_probability:.0%})")
 }
 ```
 
-Word types: `word`, `spacing`, `audio_event` (laughter, applause, etc.)
+**Word types:**
+- `word` - An actual spoken word
+- `spacing` - Whitespace between words (useful for precise timing)
+- `audio_event` - Non-speech sounds the model detected (laughter, applause, music, etc.)
 
 ## Error Handling
 
@@ -208,7 +213,12 @@ console.log(`Request ID: ${requestId}`);
 
 ## Real-Time Streaming
 
-For live transcription with ultra-low latency (~150ms), use the real-time API.
+For live transcription with ultra-low latency (~150ms), use the real-time API. The real-time API produces two types of transcripts:
+
+- **Partial transcripts**: Interim results that update frequently as audio is processed - use these for live feedback (e.g., showing text as the user speaks)
+- **Committed transcripts**: Final, stable results after you "commit" - use these as the source of truth for your application
+
+A "commit" tells the model to finalize the current segment. You can commit manually (e.g., when the user pauses) or use Voice Activity Detection (VAD) to auto-commit on silence.
 
 ### Python (Server-Side)
 
@@ -266,8 +276,8 @@ function TranscriptionComponent() {
 
 | Strategy | Description |
 |----------|-------------|
-| **Manual** | You control when to commit (default) |
-| **VAD** | Auto-commit on silence detection |
+| **Manual** | You call `commit()` when ready - use for file processing or when you control the audio segments |
+| **VAD** | Voice Activity Detection auto-commits when silence is detected - use for live microphone input |
 
 ```javascript
 // VAD configuration
@@ -293,7 +303,7 @@ See real-time references for complete documentation.
 
 ## References
 
-- [Installation Guide](references/installation.md)
+- [Installation Guide](../references/installation.md)
 - [Transcription Options](references/transcription-options.md)
 - [Real-Time Client-Side Streaming](references/realtime-client-side.md)
 - [Real-Time Server-Side Streaming](references/realtime-server-side.md)

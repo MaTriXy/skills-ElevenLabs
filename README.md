@@ -52,9 +52,13 @@ Get your API key from the `setup-api-key` skill or use the [ElevenLabs dashboard
 
 Most skills include examples for:
 
-- **Python** - `elevenlabs` package
-- **JavaScript/TypeScript** - `@elevenlabs/elevenlabs-js`
+- **Python** - `pip install elevenlabs`
+- **JavaScript/TypeScript** - `npm install @elevenlabs/elevenlabs-js`
 - **cURL** - Direct REST API calls
+
+> **JavaScript SDK Warning:** Always use `@elevenlabs/elevenlabs-js`. Do not use `npm install elevenlabs` (that's an outdated v1.x package). Also uninstall any `@11labs/*` packages as they are deprecated.
+
+See [references/installation.md](./references/installation.md) for complete setup instructions including migration from deprecated packages.
 
 ## License
 
