@@ -76,10 +76,10 @@ export ELEVENLABS_API_KEY="your-api-key"
 Include in requests via the `xi-api-key` header:
 
 ```bash
-curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/{voice_id}" \
+curl -X POST "https://api.elevenlabs.io/v1/speech-to-text" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello world", "model_id": "eleven_multilingual_v2"}'
+  -F "file=@audio.mp3" \
+  -F "model_id=scribe_v2"
 ```
 
 ## Getting an API Key

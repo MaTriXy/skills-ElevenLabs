@@ -1,6 +1,8 @@
 ---
 name: agents
 description: Build voice AI agents with ElevenLabs. Use when creating voice assistants, customer service bots, interactive voice characters, or any real-time voice conversation experience.
+license: MIT
+compatibility: Requires internet access and an ElevenLabs API key (ELEVENLABS_API_KEY).
 ---
 
 # ElevenLabs Agents Platform

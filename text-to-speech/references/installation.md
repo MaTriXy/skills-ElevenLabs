@@ -29,23 +29,15 @@ npm uninstall elevenlabs @11labs/client @11labs/react
 
 # Install the current packages
 npm install @elevenlabs/elevenlabs-js
-
-# For client-side/browser usage, also install:
-npm install @elevenlabs/client  # Browser client
-npm install @elevenlabs/react   # React hooks
 ```
 
 **Import changes:**
 ```javascript
 // OLD (deprecated)
 import { ElevenLabsClient } from "elevenlabs";
-import { Scribe } from "@11labs/client";
-import { useScribe } from "@11labs/react";
 
 // NEW (current)
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
-import { Scribe } from "@elevenlabs/client";
-import { useScribe } from "@elevenlabs/react";
 ```
 
 ## Python

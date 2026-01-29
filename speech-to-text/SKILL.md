@@ -1,6 +1,8 @@
 ---
 name: speech-to-text
 description: Transcribe audio to text using ElevenLabs Scribe. Use when converting audio/video to text, generating subtitles, transcribing meetings, or processing spoken content.
+license: MIT
+compatibility: Requires internet access and an ElevenLabs API key (ELEVENLABS_API_KEY).
 ---
 
 # ElevenLabs Speech-to-Text
@@ -63,6 +65,8 @@ result = client.speech_to_text.convert(
 
 for word in result.words:
     print(f"{word.text}: {word.start}s - {word.end}s (type: {word.type})")
+
+```
 
 ## Speaker Diarization
 
