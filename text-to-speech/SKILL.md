@@ -11,6 +11,8 @@ Generate natural speech from text - supports 74+ languages, multiple models for 
 
 ## Quick Start
 
+### Python
+
 ```python
 from elevenlabs import ElevenLabs
 
@@ -27,8 +29,7 @@ with open("output.mp3", "wb") as f:
         f.write(chunk)
 ```
 
-<details>
-<summary>JavaScript / cURL examples</summary>
+### JavaScript
 
 ```javascript
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
@@ -42,12 +43,13 @@ const audio = await client.textToSpeech.convert("JBFqnCBsd6RMkjVDRZzb", {
 audio.pipe(createWriteStream("output.mp3"));
 ```
 
+### cURL
+
 ```bash
 curl -X POST "https://api.elevenlabs.io/v1/text-to-speech/JBFqnCBsd6RMkjVDRZzb" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" -H "Content-Type: application/json" \
   -d '{"text": "Hello!", "model_id": "eleven_multilingual_v2"}' --output output.mp3
 ```
-</details>
 
 ## Models
 

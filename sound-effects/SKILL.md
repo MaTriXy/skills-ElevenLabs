@@ -11,6 +11,8 @@ Generate sound effects from text descriptions — supports looping, custom durat
 
 ## Quick Start
 
+### Python
+
 ```python
 from elevenlabs import ElevenLabs
 
@@ -25,8 +27,7 @@ with open("thunder.mp3", "wb") as f:
         f.write(chunk)
 ```
 
-<details>
-<summary>JavaScript / cURL examples</summary>
+### JavaScript
 
 ```javascript
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
@@ -39,13 +40,14 @@ const audio = await client.textToSoundEffects.convert({
 audio.pipe(createWriteStream("thunder.mp3"));
 ```
 
+### cURL
+
 ```bash
 curl -X POST "https://api.elevenlabs.io/v1/sound-generation" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" -H "Content-Type: application/json" \
   -d '{"text": "Thunder rumbling in the distance with light rain"}' \
   --output thunder.mp3
 ```
-</details>
 
 ## Parameters
 

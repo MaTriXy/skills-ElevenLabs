@@ -28,8 +28,7 @@ elevenlabs agents push
 
 **Available templates:** `default`, `minimal`, `voice-only`, `text-only`, `customer-service`, `assistant`
 
-<details>
-<summary>SDK examples (Python / JavaScript / cURL)</summary>
+### Python
 
 ```python
 from elevenlabs import ElevenLabs
@@ -50,6 +49,8 @@ agent = client.conversational_ai.agents.create(
 )
 ```
 
+### JavaScript
+
 ```javascript
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 const client = new ElevenLabsClient();
@@ -64,12 +65,13 @@ const agent = await client.conversationalAi.agents.create({
 });
 ```
 
+### cURL
+
 ```bash
 curl -X POST "https://api.elevenlabs.io/v1/convai/agents/create" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" -H "Content-Type: application/json" \
   -d '{"name": "My Assistant", "conversation_config": {"agent": {"first_message": "Hello!", "language": "en"}, "tts": {"voice_id": "JBFqnCBsd6RMkjVDRZzb"}}, "prompt": {"prompt": "You are helpful.", "llm": "gpt-4o-mini"}}'
 ```
-</details>
 
 ## Starting Conversations
 
@@ -186,8 +188,7 @@ your_project/
 └── tool_configs/     # Individual tool configs
 ```
 
-<details>
-<summary>SDK examples (Python / JavaScript / cURL)</summary>
+### SDK Examples
 
 ```python
 # List
@@ -204,7 +205,6 @@ client.conversational_ai.agents.update(agent_id="your-agent-id",
 # Delete
 client.conversational_ai.agents.delete(agent_id="your-agent-id")
 ```
-</details>
 
 See [Agent Configuration](references/agent-configuration.md) for all configuration options and SDK examples.
 

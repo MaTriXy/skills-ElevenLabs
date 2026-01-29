@@ -11,6 +11,8 @@ Transcribe audio to text with Scribe v2 - supports 90+ languages, speaker diariz
 
 ## Quick Start
 
+### Python
+
 ```python
 from elevenlabs import ElevenLabs
 
@@ -22,8 +24,7 @@ with open("audio.mp3", "rb") as audio_file:
 print(result.text)
 ```
 
-<details>
-<summary>JavaScript / cURL examples</summary>
+### JavaScript
 
 ```javascript
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
@@ -37,11 +38,12 @@ const result = await client.speechToText.convert({
 console.log(result.text);
 ```
 
+### cURL
+
 ```bash
 curl -X POST "https://api.elevenlabs.io/v1/speech-to-text" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" -F "file=@audio.mp3" -F "model_id=scribe_v2"
 ```
-</details>
 
 ## Models
 
