@@ -15,7 +15,7 @@ Guide the user through obtaining and configuring an ElevenLabs API key.
 
 Tell the user:
 
-> To set up ElevenLabs, open the API keys page: https://elevenlabs.io/app/developers/api-keys
+> To set up ElevenLabs, open the API keys page: https://elevenlabs.io/app/settings/api-keys
 >
 > (Need an account? Create one at https://elevenlabs.io/app/sign-up first)
 >
@@ -43,7 +43,7 @@ Once the user provides the API key:
 2. **If validation fails:**
    - Tell the user the API key appears to be invalid
    - Ask them to try again
-   - Remind them of the URL: https://elevenlabs.io/app/developers/api-keys
+   - Remind them of the URL: https://elevenlabs.io/app/settings/api-keys
    - If it fails a second time, display an error and exit
 
 3. **If validation succeeds**, save the API key in a `.env` file:

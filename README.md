@@ -29,7 +29,7 @@ All skills require an ElevenLabs API key. Set it as an environment variable:
 export ELEVENLABS_API_KEY="your-api-key"
 ```
 
-Get your API key from the `setup-api-key` skill or use the [ElevenLabs dashboard](https://elevenlabs.io/app/developers/api-keys).
+Get your API key from the `setup-api-key` skill or use the [ElevenLabs dashboard](https://elevenlabs.io/app/settings/api-keys).
 
 ## SDK Support
 
@@ -39,7 +39,7 @@ Most skills include examples for:
 - **JavaScript/TypeScript** - `npm install @elevenlabs/elevenlabs-js`
 - **cURL** - Direct REST API calls
 
-> **JavaScript SDK Warning:** Always use `@elevenlabs/elevenlabs-js`. Do not use `npm install elevenlabs` (that's an outdated v1.x package). Also uninstall any `@11labs/*` packages as they are deprecated.
+> **JavaScript SDK Warning:** Always use `@elevenlabs/elevenlabs-js`. Do not use `npm install elevenlabs` (that's an outdated v1.x package).
 
 See the installation guide in any skill's `references/` folder for complete setup instructions including migration from deprecated packages.
 

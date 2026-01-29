@@ -33,7 +33,7 @@ elevenlabs agents push
 ### Python
 
 ```python
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs()
 
@@ -149,8 +149,8 @@ See [Client Tools Reference](references/client-tools.md) for complete documentat
 ## Widget Embedding
 
 ```html
-<script src="https://elevenlabs.io/convai-widget/index.js" async></script>
 <elevenlabs-convai agent-id="your-agent-id"></elevenlabs-convai>
+<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 ```
 
 Customize with attributes: `avatar-image-url`, `action-text`, `start-call-text`, `end-call-text`.

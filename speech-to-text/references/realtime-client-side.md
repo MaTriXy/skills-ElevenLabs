@@ -12,7 +12,7 @@ npm install @elevenlabs/react @elevenlabs/elevenlabs-js
 npm install @elevenlabs/client @elevenlabs/elevenlabs-js
 ```
 
-> **Warning:** Do not use packages from `@11labs/*` (e.g., `@11labs/client`, `@11labs/react`) - they are deprecated. Always use the `@elevenlabs/*` namespace.
+> **Warning:** Always use the `@elevenlabs/*` namespace for client-side packages.
 
 ## Token Generation
 

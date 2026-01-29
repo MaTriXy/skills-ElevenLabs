@@ -5,17 +5,24 @@
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `file` | file | Yes | Audio or video file to transcribe |
-| `model_id` | string | Yes | `scribe_v2` or `scribe_v2_realtime` |
-| `language_code` | string | No | Language hint (ISO 639-3 code, e.g., `eng`) |
+| `model_id` | string | Yes | `scribe_v2` (or legacy `scribe_v1`) for batch transcription |
+| `language_code` | string | No | Language hint (ISO 639-1 or ISO 639-3, e.g., `en` or `eng`) |
 | `timestamps_granularity` | string | No | `none`, `word`, or `character` (default: `word`) |
-| `diarize` | boolean | No | Enable speaker diarization (up to 48 speakers) |
+| `diarize` | boolean | No | Enable speaker diarization (up to 32 speakers for batch) |
+| `num_speakers` | integer | No | Maximum speakers to detect (up to 32 for batch) |
+| `diarization_threshold` | number | No | Tune diarization sensitivity when `diarize=true` |
 | `keyterms` | array | No | Terms to bias transcription (up to 100) |
 | `tag_audio_events` | boolean | No | Detect non-speech sounds (laughter, applause) |
+| `entity_detection` | string or array | No | Detect entities (e.g., `pii`, `phi`, `pci`, `offensive_language`) |
+| `use_multi_channel` | boolean | No | Split multichannel audio into separate transcripts |
+| `cloud_storage_url` | string | No | HTTPS URL to transcribe instead of uploading a file |
+| `webhook` | boolean | No | Process async and send result to webhook |
+| `webhook_metadata` | string or object | No | Custom metadata included in webhook responses |
 
 ## Python Example
 
 ```python
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs()
 
@@ -91,7 +98,7 @@ curl -X POST "https://api.elevenlabs.io/v1/speech-to-text" \
 | Field | Type | Description |
 |-------|------|-------------|
 | `text` | string | Full transcription text |
-| `language_code` | string | Detected language (ISO 639-3) |
+| `language_code` | string | Detected language (ISO 639-1 or ISO 639-3) |
 | `language_probability` | float | Confidence in detection (0-1) |
 | `words` | array | Word-level timestamps (if requested) |
 | `words[].text` | string | The transcribed word or spacing |

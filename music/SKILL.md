@@ -16,7 +16,7 @@ Generate music from text prompts - supports instrumental tracks, songs with lyri
 ### Python
 
 ```python
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs()
 
@@ -47,7 +47,7 @@ audio.pipe(createWriteStream("output.mp3"));
 ### cURL
 
 ```bash
-curl -X POST "https://api.elevenlabs.io/v1/music/compose" \
+curl -X POST "https://api.elevenlabs.io/v1/music" \
   -H "xi-api-key: $ELEVENLABS_API_KEY" -H "Content-Type: application/json" \
   -d '{"prompt": "A chill lo-fi beat", "music_length_ms": 30000}' --output output.mp3
 ```

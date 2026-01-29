@@ -16,8 +16,11 @@ Generate music from a text prompt. Returns an audio stream.
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
 | `prompt` | string | Yes* | Description of desired music |
-| `music_length_ms` | integer | Yes | Track duration in milliseconds |
 | `composition_plan` | object | Yes* | Pre-defined composition plan (alternative to prompt) |
+| `music_length_ms` | integer | No | Duration in milliseconds (3,000–600,000) when using `prompt`; if omitted, the model chooses |
+| `model_id` | string | No | Defaults to `music_v1` |
+| `force_instrumental` | boolean | No | Guarantee an instrumental output (prompt mode only) |
+| `respect_sections_durations` | boolean | No | Enforce exact `duration_ms` in each composition plan section |
 
 *Provide either `prompt` or `composition_plan`, not both.
 

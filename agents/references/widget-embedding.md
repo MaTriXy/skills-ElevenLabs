@@ -5,11 +5,13 @@ Add a voice AI agent to any website with the ElevenLabs conversation widget.
 ## Basic Embed
 
 ```html
-<script src="https://elevenlabs.io/convai-widget/index.js" async></script>
 <elevenlabs-convai agent-id="your-agent-id"></elevenlabs-convai>
+<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 ```
 
 This creates a floating button that users can click to start a voice conversation.
+
+> **Note:** Widgets currently require public agents with authentication disabled. For authenticated flows, use the SDKs.
 
 ## Widget Attributes
 
@@ -18,6 +20,7 @@ This creates a floating button that users can click to start a voice conversatio
 | Attribute | Description |
 |-----------|-------------|
 | `agent-id` | Your ElevenLabs agent ID |
+| `signed-url` | Alternative to `agent-id` when using signed URLs |
 
 ### Appearance
 
@@ -36,12 +39,16 @@ This creates a floating button that users can click to start a voice conversatio
 | `end-call-text` | Button to end call | "End call" |
 | `expand-text` | Expand chat button | "Open" |
 | `collapse-text` | Collapse chat button | "Close" |
+| `listening-text` | Listening state label | "Listening..." |
+| `speaking-text` | Speaking state label | "Assistant speaking" |
 
 ### Behavior
 
 | Attribute | Description | Default |
 |-----------|-------------|---------|
 | `variant` | Widget style: `compact` or `expanded` | `compact` |
+| `server-location` | Server region (`us`, `eu-residency`, `in-residency`, `global`) | `us` |
+| `dismissible` | Allow the user to minimize the widget | `false` |
 | `disable-banner` | Hide "Powered by ElevenLabs" | `false` |
 
 ## Examples
@@ -275,7 +282,7 @@ function App() {
   useEffect(() => {
     // Load widget script
     const script = document.createElement("script");
-    script.src = "https://elevenlabs.io/convai-widget/index.js";
+    script.src = "https://unpkg.com/@elevenlabs/convai-widget-embed";
     script.async = true;
     document.body.appendChild(script);
 
@@ -304,7 +311,7 @@ import { onMounted } from "vue";
 
 onMounted(() => {
   const script = document.createElement("script");
-  script.src = "https://elevenlabs.io/convai-widget/index.js";
+  script.src = "https://unpkg.com/@elevenlabs/convai-widget-embed";
   script.async = true;
   document.body.appendChild(script);
 });
@@ -320,7 +327,7 @@ export default function Page() {
   return (
     <>
       <Script
-        src="https://elevenlabs.io/convai-widget/index.js"
+        src="https://unpkg.com/@elevenlabs/convai-widget-embed"
         strategy="lazyOnload"
       />
       <elevenlabs-convai agent-id="your-agent-id"></elevenlabs-convai>

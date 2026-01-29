@@ -12,7 +12,7 @@ pip install elevenlabs python-dotenv pydub
 npm install @elevenlabs/elevenlabs-js dotenv
 ```
 
-> **Warning:** Do not use `npm install elevenlabs` - that's an outdated v1.x package. Always use `@elevenlabs/elevenlabs-js`. Also avoid any `@11labs/*` packages as they are deprecated.
+> **Warning:** Do not use `npm install elevenlabs` - that's an outdated v1.x package. Always use `@elevenlabs/elevenlabs-js`.
 
 ## Configuration
 
@@ -30,7 +30,8 @@ ELEVENLABS_API_KEY=<your_api_key_here>
 from dotenv import load_dotenv
 import os
 import asyncio
-from elevenlabs import ElevenLabs, RealtimeEvents, RealtimeUrlOptions
+from elevenlabs.client import ElevenLabs
+from elevenlabs import RealtimeEvents, RealtimeUrlOptions
 
 load_dotenv()
 
@@ -116,7 +117,8 @@ import base64
 import os
 from dotenv import load_dotenv
 from pathlib import Path
-from elevenlabs import AudioFormat, CommitStrategy, ElevenLabs, RealtimeEvents, RealtimeAudioOptions
+from elevenlabs.client import ElevenLabs
+from elevenlabs import AudioFormat, CommitStrategy, RealtimeEvents, RealtimeAudioOptions
 from pydub import AudioSegment
 
 load_dotenv()

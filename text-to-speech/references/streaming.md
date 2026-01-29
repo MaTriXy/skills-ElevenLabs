@@ -13,7 +13,7 @@ Stream audio chunks as they're generated for lower latency.
 ## Python Streaming
 
 ```python
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs()
 

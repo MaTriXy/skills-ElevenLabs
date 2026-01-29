@@ -16,7 +16,7 @@ Generate natural speech from text - supports 74+ languages, multiple models for 
 ### Python
 
 ```python
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs()
 

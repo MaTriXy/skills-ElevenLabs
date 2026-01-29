@@ -16,7 +16,7 @@ Transcribe audio to text with Scribe v2 - supports 90+ languages, speaker diariz
 ### Python
 
 ```python
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs()
 
@@ -103,7 +103,7 @@ Automatic detection with optional language hint:
 result = client.speech_to_text.convert(
     file=audio_file,
     model_id="scribe_v2",
-    language_code="eng"  # ISO 639-3 code
+    language_code="eng"  # ISO 639-1 or ISO 639-3 code
 )
 
 print(f"Detected: {result.language_code} ({result.language_probability:.0%})")
@@ -173,7 +173,7 @@ A "commit" tells the model to finalize the current segment. You can commit manua
 
 ```python
 import asyncio
-from elevenlabs import ElevenLabs
+from elevenlabs.client import ElevenLabs
 
 client = ElevenLabs()
 

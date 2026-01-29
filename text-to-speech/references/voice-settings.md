@@ -15,7 +15,8 @@ Fine-tune voice characteristics for your use case.
 ## Python Example
 
 ```python
-from elevenlabs import ElevenLabs, VoiceSettings
+from elevenlabs.client import ElevenLabs
+from elevenlabs import VoiceSettings
 
 client = ElevenLabs()
 
