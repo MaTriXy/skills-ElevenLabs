@@ -20,9 +20,9 @@ Convert audio to text with state-of-the-art accuracy. Supports 90+ languages, sp
 ## Usage
 
 ```bash
-./transcribe.sh <audio_file> [options]
-./transcribe.sh --url <stream_url> [options]
-./transcribe.sh --mic [options]
+{baseDir}/scripts/transcribe.sh <audio_file> [options]
+{baseDir}/scripts/transcribe.sh --url <stream_url> [options]
+{baseDir}/scripts/transcribe.sh --mic [options]
 ```
 
 ## Examples
@@ -32,19 +32,19 @@ Convert audio to text with state-of-the-art accuracy. Supports 90+ languages, sp
 Transcribe a local audio file:
 
 ```bash
-./transcribe.sh recording.mp3
+{baseDir}/scripts/transcribe.sh recording.mp3
 ```
 
 With speaker identification:
 
 ```bash
-./transcribe.sh meeting.mp3 --diarize
+{baseDir}/scripts/transcribe.sh meeting.mp3 --diarize
 ```
 
 Get full JSON response with timestamps:
 
 ```bash
-./transcribe.sh interview.wav --diarize --json
+{baseDir}/scripts/transcribe.sh interview.wav --diarize --json
 ```
 
 ### Realtime Streaming
@@ -52,19 +52,19 @@ Get full JSON response with timestamps:
 Stream from a URL (e.g., live radio, podcast):
 
 ```bash
-./transcribe.sh --url https://npr-ice.streamguys1.com/live.mp3
+{baseDir}/scripts/transcribe.sh --url https://npr-ice.streamguys1.com/live.mp3
 ```
 
 Transcribe from microphone:
 
 ```bash
-./transcribe.sh --mic
+{baseDir}/scripts/transcribe.sh --mic
 ```
 
 Stream a local file in realtime (useful for testing):
 
 ```bash
-./transcribe.sh audio.mp3 --realtime
+{baseDir}/scripts/transcribe.sh audio.mp3 --realtime
 ```
 
 ### Quiet Mode for Agents
@@ -72,7 +72,7 @@ Stream a local file in realtime (useful for testing):
 Suppress status messages on stderr:
 
 ```bash
-./transcribe.sh --mic --quiet
+{baseDir}/scripts/transcribe.sh --mic --quiet
 ```
 
 ## Options
