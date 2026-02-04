@@ -208,6 +208,7 @@ response = client.text_to_speech.convert.with_raw_response(
 )
 audio = response.parse()
 print(f"Characters used: {response.headers.get('x-character-count')}")
+```
 
 ## References
 
