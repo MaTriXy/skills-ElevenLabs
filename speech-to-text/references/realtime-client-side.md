@@ -36,13 +36,14 @@ app.get("/scribe-token", yourAuthMiddleware, async (req, res) => {
 ## React Implementation
 
 ```typescript
-import { useScribe } from "@elevenlabs/react";
+import { useScribe, CommitStrategy } from "@elevenlabs/react";
 
 function TranscriptionComponent() {
   const [transcript, setTranscript] = useState("");
 
   const scribe = useScribe({
     modelId: "scribe_v2_realtime",
+    commitStrategy: CommitStrategy.VAD, // Auto-commit on silence for mic input
     onPartialTranscript: (data) => {
       // Show live feedback as user speaks
       console.log("Partial:", data.text);
@@ -81,6 +82,8 @@ function TranscriptionComponent() {
   );
 }
 ```
+
+> **Important:** The default commit strategy is `CommitStrategy.MANUAL`, which requires you to call `scribe.commit()` explicitly. For microphone input, always set `CommitStrategy.VAD` so the server auto-commits when silence is detected. Without this, committed transcripts will never fire and the connection may drop.
 
 ## JavaScript Implementation
 

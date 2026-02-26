@@ -196,13 +196,14 @@ asyncio.run(transcribe_realtime())
 ### JavaScript (Client-Side with React)
 
 ```typescript
-import { useScribe } from "@elevenlabs/react";
+import { useScribe, CommitStrategy } from "@elevenlabs/react";
 
 function TranscriptionComponent() {
   const [transcript, setTranscript] = useState("");
 
   const scribe = useScribe({
     modelId: "scribe_v2_realtime",
+    commitStrategy: CommitStrategy.VAD, // Auto-commit on silence for mic input
     onPartialTranscript: (data) => console.log("Partial:", data.text),
     onCommittedTranscript: (data) => setTranscript((prev) => prev + data.text),
   });
@@ -228,8 +229,21 @@ function TranscriptionComponent() {
 | **Manual** | You call `commit()` when ready - use for file processing or when you control the audio segments |
 | **VAD** | Voice Activity Detection auto-commits when silence is detected - use for live microphone input |
 
+```typescript
+// React: set commitStrategy on the hook (recommended for mic input)
+import { useScribe, CommitStrategy } from "@elevenlabs/react";
+
+const scribe = useScribe({
+  modelId: "scribe_v2_realtime",
+  commitStrategy: CommitStrategy.VAD,
+  // Optional VAD tuning:
+  vadSilenceThresholdSecs: 1.5,
+  vadThreshold: 0.4,
+});
+```
+
 ```javascript
-// VAD configuration
+// JavaScript client: pass vad config on connect
 const connection = await client.speechToText.realtime.connect({
   modelId: "scribe_v2_realtime",
   vad: {
