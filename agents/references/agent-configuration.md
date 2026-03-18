@@ -325,7 +325,6 @@ Use `platform_settings.widget` to configure the hosted widget and shareable page
 | Field | Type | Description |
 |-------|------|-------------|
 | `tags` | array | Classification labels for filtering (e.g., `["production"]`, `["test"]`) |
-| `coaching_settings` | object | Configuration for agent coaching and evaluation |
 | `workflow` | object | Conversation flow definition and tool interaction sequences |
 
 ## Knowledge Base / RAG
@@ -479,7 +478,7 @@ curl -X PATCH "https://api.elevenlabs.io/v1/convai/agents/your-agent-id" \
 
 | Section | Fields |
 |---------|--------|
-| Root | `name`, `tags`, `coaching_settings` |
+| Root | `name`, `tags` |
 | `conversation_config.agent` | `first_message`, `language`, `disable_first_message_interruptions`, `dynamic_variables` |
 | `conversation_config.agent.prompt` | `prompt`, `llm`, `temperature`, `max_tokens`, `reasoning_effort`, `tools`, `built_in_tools`, `knowledge_base`, `custom_llm`, `timezone` |
 | `conversation_config.tts` | `voice_id`, `model_id`, `stability`, `similarity_boost`, `speed`, `optimize_streaming_latency`, `expressive_mode` |
