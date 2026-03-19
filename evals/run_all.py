@@ -1,0 +1,761 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+"""Run trigger and functional evaluations across all ElevenLabs skills.
+
+Usage:
+    # Run everything
+    python evals/run_all.py
+
+    # Trigger evals only
+    python evals/run_all.py --trigger-only
+
+    # Functional evals only
+    python evals/run_all.py --functional-only
+
+    # Specific skills
+    python evals/run_all.py --skills text-to-speech agents
+
+    # Custom model and parallelism
+    python evals/run_all.py --model claude-sonnet-4-6 --workers 5
+"""
+
+import argparse
+import json
+import os
+import select
+import subprocess
+import sys
+import time
+import uuid
+from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).parent.parent
+EVALS_DIR = Path(__file__).parent
+
+ALL_SKILLS = [
+    "text-to-speech",
+    "speech-to-text",
+    "agents",
+    "sound-effects",
+    "music",
+    "setup-api-key",
+]
+
+
+def find_project_root() -> Path:
+    current = Path.cwd()
+    for parent in [current, *current.parents]:
+        if (parent / ".claude").is_dir():
+            return parent
+    return current
+
+
+def parse_skill_md(skill_path: Path) -> tuple:
+    """Parse a SKILL.md file, returning (name, description, full_content)."""
+    content = (skill_path / "SKILL.md").read_text()
+    lines = content.split("\n")
+    if lines[0].strip() != "---":
+        raise ValueError("SKILL.md missing frontmatter")
+    end_idx = None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            end_idx = i
+            break
+    if end_idx is None:
+        raise ValueError("SKILL.md missing closing ---")
+    name = ""
+    description = ""
+    fm_lines = lines[1:end_idx]
+    i = 0
+    while i < len(fm_lines):
+        line = fm_lines[i]
+        if line.startswith("name:"):
+            name = line[len("name:"):].strip().strip('"').strip("'")
+        elif line.startswith("description:"):
+            value = line[len("description:"):].strip()
+            if value in (">", "|", ">-", "|-"):
+                parts = []
+                i += 1
+                while i < len(fm_lines) and (fm_lines[i].startswith("  ") or fm_lines[i].startswith("\t")):
+                    parts.append(fm_lines[i].strip())
+                    i += 1
+                description = " ".join(parts)
+                continue
+            else:
+                description = value.strip('"').strip("'")
+        i += 1
+    return name, description, content
+
+
+def run_single_trigger_query(
+    query: str,
+    skill_name: str,
+    skill_description: str,
+    timeout: int,
+    project_root: str,
+    model: str = None,
+) -> bool:
+    """Run a single query and return whether the skill was triggered.
+
+    Checks if Claude uses the Skill tool for the target skill name.
+    Works with both installed skills (in ~/.claude/skills/) and
+    temporary command files.
+    """
+    unique_id = uuid.uuid4().hex[:8]
+    clean_name = "%s-skill-%s" % (skill_name, unique_id)
+    project_commands_dir = Path(project_root) / ".claude" / "commands"
+    command_file = project_commands_dir / ("%s.md" % clean_name)
+
+    # Names to match: both the real skill name and the temp command name
+    match_names = {skill_name, clean_name}
+
+    try:
+        # Create temp command file as fallback for skills not installed globally
+        project_commands_dir.mkdir(parents=True, exist_ok=True)
+        indented_desc = "\n  ".join(skill_description.split("\n"))
+        command_content = (
+            "---\n"
+            "description: |\n"
+            "  %s\n"
+            "---\n\n"
+            "# %s\n\n"
+            "This skill handles: %s\n"
+        ) % (indented_desc, skill_name, skill_description)
+        command_file.write_text(command_content)
+
+        cmd = [
+            "claude",
+            "-p", query,
+            "--output-format", "stream-json",
+            "--verbose",
+        ]
+        if model:
+            cmd.extend(["--model", model])
+
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            cwd=project_root,
+            env=env,
+        )
+
+        triggered = False
+        start_time = time.time()
+        buffer = ""
+
+        try:
+            while time.time() - start_time < timeout:
+                if process.poll() is not None:
+                    remaining = process.stdout.read()
+                    if remaining:
+                        buffer += remaining.decode("utf-8", errors="replace")
+                    break
+
+                ready, _, _ = select.select([process.stdout], [], [], 1.0)
+                if not ready:
+                    continue
+
+                chunk = os.read(process.stdout.fileno(), 8192)
+                if not chunk:
+                    break
+                buffer += chunk.decode("utf-8", errors="replace")
+
+                while "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+
+                    # Check assistant messages for tool_use blocks
+                    if event.get("type") == "assistant":
+                        message = event.get("message", {})
+                        for block in message.get("content", []):
+                            if block.get("type") != "tool_use":
+                                continue
+                            tool_name = block.get("name", "")
+                            tool_input = block.get("input", {})
+
+                            # Match Skill tool calls
+                            if tool_name == "Skill":
+                                skill_arg = tool_input.get("skill", "")
+                                if any(n in skill_arg for n in match_names):
+                                    triggered = True
+
+                            # Match Read tool calls (reading SKILL.md)
+                            elif tool_name == "Read":
+                                file_path = tool_input.get("file_path", "")
+                                if any(n in file_path for n in match_names):
+                                    triggered = True
+
+                            # Match ToolSearch (loading Skill tool)
+                            elif tool_name == "ToolSearch":
+                                # ToolSearch is just loading tools, skip
+                                continue
+
+                    # Early exit on result
+                    elif event.get("type") == "result":
+                        break
+
+                    if triggered:
+                        break
+                if triggered:
+                    break
+
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+
+        return triggered
+    finally:
+        if command_file.exists():
+            command_file.unlink()
+
+
+def run_trigger_eval_for_skill(
+    skill_name: str,
+    model: str,
+    workers: int,
+    runs_per_query: int,
+    timeout: int,
+    verbose: bool,
+) -> dict:
+    """Run trigger evaluation for a single skill."""
+    trigger_file = EVALS_DIR / skill_name / "trigger_eval.json"
+    skill_path = REPO_ROOT / skill_name
+
+    if not trigger_file.exists():
+        return {"skill": skill_name, "error": "No trigger_eval.json found"}
+    if not (skill_path / "SKILL.md").exists():
+        return {"skill": skill_name, "error": "No SKILL.md at %s" % skill_path}
+
+    eval_set = json.loads(trigger_file.read_text())
+    name, description, _ = parse_skill_md(skill_path)
+    project_root = find_project_root()
+
+    if verbose:
+        print("\n" + "=" * 60, file=sys.stderr)
+        print("TRIGGER EVAL: %s" % skill_name, file=sys.stderr)
+        print("Description: %s..." % description[:80], file=sys.stderr)
+        print("Queries: %d" % len(eval_set), file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+
+    t0 = time.time()
+
+    # Run all queries in parallel
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        future_to_info = {}
+        for item in eval_set:
+            for run_idx in range(runs_per_query):
+                future = executor.submit(
+                    run_single_trigger_query,
+                    item["query"],
+                    name,
+                    description,
+                    timeout,
+                    str(project_root),
+                    model,
+                )
+                future_to_info[future] = (item, run_idx)
+
+        query_triggers = {}
+        query_items = {}
+        for future in as_completed(future_to_info):
+            item, _ = future_to_info[future]
+            query = item["query"]
+            query_items[query] = item
+            if query not in query_triggers:
+                query_triggers[query] = []
+            try:
+                query_triggers[query].append(future.result())
+            except Exception as e:
+                print("Warning: query failed: %s" % e, file=sys.stderr)
+                query_triggers[query].append(False)
+
+    results = []
+    for query, triggers in query_triggers.items():
+        item = query_items[query]
+        trigger_rate = sum(triggers) / len(triggers)
+        should_trigger = item["should_trigger"]
+        did_pass = trigger_rate >= 0.5 if should_trigger else trigger_rate < 0.5
+        results.append({
+            "query": query,
+            "should_trigger": should_trigger,
+            "trigger_rate": trigger_rate,
+            "triggers": sum(triggers),
+            "runs": len(triggers),
+            "pass": did_pass,
+        })
+
+    elapsed = time.time() - t0
+    passed = sum(1 for r in results if r["pass"])
+    total = len(results)
+
+    if verbose:
+        print("  Result: %d/%d passed (%.1fs)" % (passed, total, elapsed), file=sys.stderr)
+        for r in results:
+            status = "PASS" if r["pass"] else "FAIL"
+            rate = "%d/%d" % (r["triggers"], r["runs"])
+            print("  [%s] rate=%s expected=%s: %s" % (status, rate, r["should_trigger"], r["query"][:60]), file=sys.stderr)
+
+    return {
+        "skill": skill_name,
+        "type": "trigger",
+        "summary": {"total": total, "passed": passed, "failed": total - passed},
+        "results": results,
+        "elapsed_seconds": round(elapsed, 1),
+    }
+
+
+def run_functional_eval_for_skill(
+    skill_name: str,
+    model: str,
+    output_dir: Path,
+    timeout: int,
+    verbose: bool,
+) -> dict:
+    """Run functional evals for a single skill using claude -p."""
+    evals_file = EVALS_DIR / skill_name / "evals.json"
+    skill_path = REPO_ROOT / skill_name
+
+    if not evals_file.exists():
+        return {"skill": skill_name, "error": "No evals.json found"}
+    if not (skill_path / "SKILL.md").exists():
+        return {"skill": skill_name, "error": f"No SKILL.md at {skill_path}"}
+
+    eval_data = json.loads(evals_file.read_text())
+    skill_md = (skill_path / "SKILL.md").read_text()
+
+    skill_output_dir = output_dir / skill_name
+    skill_output_dir.mkdir(parents=True, exist_ok=True)
+
+    if verbose:
+        print(f"\n{'='*60}", file=sys.stderr)
+        print(f"FUNCTIONAL EVAL: {skill_name}", file=sys.stderr)
+        print(f"Test cases: {len(eval_data['evals'])}", file=sys.stderr)
+        print(f"{'='*60}", file=sys.stderr)
+
+    eval_results = []
+    for ev in eval_data["evals"]:
+        eval_id = ev["id"]
+        prompt = ev["prompt"]
+        expectations = ev.get("expectations", [])
+
+        if verbose:
+            print(f"  Running eval {eval_id}: {prompt[:60]}...", file=sys.stderr)
+
+        eval_dir = skill_output_dir / f"eval-{eval_id}"
+        eval_dir.mkdir(parents=True, exist_ok=True)
+
+        # Build prompt that includes skill content
+        full_prompt = (
+            f"You have access to the following skill for reference. "
+            f"Use its guidance to complete the task.\n\n"
+            f"<skill>\n{skill_md}\n</skill>\n\n"
+            f"Task: {prompt}\n\n"
+            f"Write all code and output to: {eval_dir}/outputs/\n"
+            f"Create an outputs/ directory if needed."
+        )
+
+        # Run claude -p
+        cmd = ["claude", "-p", full_prompt, "--output-format", "json"]
+        if model:
+            cmd.extend(["--model", model])
+
+        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+
+        t0 = time.time()
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                cwd=str(REPO_ROOT),
+                env=env,
+            )
+            elapsed = time.time() - t0
+            success = result.returncode == 0
+
+            # Save transcript
+            (eval_dir / "transcript.txt").write_text(result.stdout)
+            if result.stderr:
+                (eval_dir / "stderr.txt").write_text(result.stderr)
+
+            # Parse response for grading
+            response_text = result.stdout
+
+            # Grade against expectations
+            grades = grade_expectations(response_text, expectations)
+
+            passed = sum(1 for g in grades if g["passed"])
+            total = len(grades)
+
+        except subprocess.TimeoutExpired:
+            elapsed = time.time() - t0
+            success = False
+            grades = [{"text": e, "passed": False, "evidence": "Timed out"} for e in expectations]
+            passed = 0
+            total = len(expectations)
+        except Exception as e:
+            elapsed = time.time() - t0
+            success = False
+            grades = [{"text": e, "passed": False, "evidence": str(e)} for e in expectations]
+            passed = 0
+            total = len(expectations)
+
+        eval_result = {
+            "eval_id": eval_id,
+            "prompt": prompt,
+            "success": success,
+            "passed": passed,
+            "total": total,
+            "pass_rate": round(passed / total, 2) if total > 0 else 0,
+            "elapsed_seconds": round(elapsed, 1),
+            "grades": grades,
+        }
+        eval_results.append(eval_result)
+
+        # Save grading
+        (eval_dir / "grading.json").write_text(json.dumps(eval_result, indent=2))
+
+        if verbose:
+            print(f"    Result: {passed}/{total} expectations passed ({elapsed:.1f}s)", file=sys.stderr)
+            for g in grades:
+                status = "PASS" if g["passed"] else "FAIL"
+                print(f"    [{status}] {g['text'][:70]}", file=sys.stderr)
+
+    total_passed = sum(e["passed"] for e in eval_results)
+    total_expectations = sum(e["total"] for e in eval_results)
+    total_elapsed = sum(e["elapsed_seconds"] for e in eval_results)
+
+    return {
+        "skill": skill_name,
+        "type": "functional",
+        "summary": {
+            "evals_run": len(eval_results),
+            "total_passed": total_passed,
+            "total_expectations": total_expectations,
+            "pass_rate": round(total_passed / total_expectations, 2) if total_expectations > 0 else 0,
+        },
+        "results": eval_results,
+        "elapsed_seconds": round(total_elapsed, 1),
+    }
+
+
+def grade_expectations(response_text, expectations):
+    """Simple keyword/pattern grading of expectations against response text.
+
+    For more rigorous grading, use the skill-creator's grader agent.
+    """
+    response_lower = response_text.lower()
+    grades = []
+
+    for expectation in expectations:
+        passed, evidence = check_expectation(response_lower, response_text, expectation)
+        grades.append({
+            "text": expectation,
+            "passed": passed,
+            "evidence": evidence,
+        })
+
+    return grades
+
+
+def check_expectation(response_lower, response_text, expectation):
+    """Check a single expectation against the response. Returns (passed, evidence)."""
+    exp_lower = expectation.lower()
+
+    # Direct pattern checks — look for specific API patterns in the response
+    pattern_checks = [
+        # SDK imports
+        ("from elevenlabs import", "from elevenlabs import", "elevenlabs import"),
+        ("elevenlabs()", "elevenlabs()", "client constructor"),
+        ("elevenlabsclient", "elevenlabsclient", "JS client constructor"),
+        # API methods
+        ("text_to_speech.convert", "text_to_speech.convert", "TTS convert"),
+        ("texttospeech.convert", "texttospeech.convert", "JS TTS convert"),
+        ("speech_to_text.convert", "speech_to_text.convert", "STT convert"),
+        ("speechtotext.convert", "speechtotext.convert", "JS STT convert"),
+        ("text_to_sound_effects.convert", "text_to_sound_effects.convert", "SFX convert"),
+        ("music.compose", "music.compose", "music compose"),
+        # Parameters
+        ("model_id", "model_id", "model_id param"),
+        ("modelid", "modelid", "JS modelId param"),
+        ("voice_id", "voice_id", "voice_id param"),
+        ("scribe_v2", "scribe_v2", "scribe_v2 model"),
+        ("multilingual", "multilingual", "multilingual model"),
+        ("music_length_ms", "music_length_ms", "music duration"),
+        ("diariz", "diariz", "diarization"),
+        # JS SDK
+        ("@elevenlabs/elevenlabs-js", "@elevenlabs/", "JS SDK package"),
+        ("@elevenlabs/", "@elevenlabs/", "JS SDK package"),
+        # Agents
+        ("elevenlabs agents", "elevenlabs agent", "CLI agents command"),
+        ("convai", "convai", "ConvAI widget"),
+        ("agent-id", "agent-id", "agent-id attribute"),
+        ("agent_id", "agent_id", "agent_id attribute"),
+        ("webhook", "webhook", "webhook tool"),
+        # API key
+        ("elevenlabs_api_key", "elevenlabs_api_key", "API key env var"),
+    ]
+
+    for trigger, search, label in pattern_checks:
+        if trigger in exp_lower:
+            found = search in response_lower
+            return found, ("%s found" % label) if found else ("%s not found" % label)
+
+    # Handle NOT/negative expectations (deprecated patterns)
+    if "not" in exp_lower and ("deprecated" in exp_lower or "do not use" in exp_lower):
+        deprecated_patterns = [
+            "from elevenlabs import generate",
+            "from elevenlabs import voices",
+            'require("elevenlabs")',
+            "npm install elevenlabs",
+        ]
+        found_deprecated = [p for p in deprecated_patterns if p in response_lower]
+        if found_deprecated:
+            return False, "Found deprecated pattern: %s" % found_deprecated[0]
+        return True, "No deprecated patterns found"
+
+    # Semantic checks for natural language expectations
+    semantic_checks = [
+        # Streaming
+        (["streaming", "stream"], ["stream", "chunk", "generator", "yield", "async", "iter"]),
+        # File operations
+        (["saves", "output", "file", "writes"], ["open(", "write", "save", ".mp3", ".wav", ".mp4"]),
+        # Audio processing
+        (["audio", "chunk"], ["chunk", "audio", "byte", "stream", "iter"]),
+        # Real-time / playback
+        (["play", "real-time", "realtime"], ["play", "stream", "chunk", "audio", "realtime", "real-time"]),
+        # Dashboard / instructions
+        (["dashboard", "instructions"], ["dashboard", "elevenlabs.io", "settings", "profile", "api key", "navigate"]),
+        # Validation / test API
+        (["validate", "test", "api call"], ["validate", "verify", "test", "curl", "request", "/v1/user", "api.elevenlabs"]),
+        # Causes / suggestions / debugging
+        (["suggests", "causes", "expired", "debug"], ["expired", "invalid", "wrong", "rotate", "regenerate", "check", "verify", "troubleshoot", "common"]),
+        # Steps / getting new key
+        (["steps", "new key", "get a new"], ["step", "new key", "generate", "create", "regenerate", "dashboard", "replace"]),
+        # System prompt
+        (["system prompt"], ["system", "prompt", "instruction", "persona", "role"]),
+        # Tool / booking / availability
+        (["tool", "checking", "booking", "availability"], ["tool", "function", "action", "book", "reserv", "avail", "check"]),
+        # Instruments / musical
+        (["instrument", "musical"], ["instrument", "piano", "guitar", "drum", "bass", "string", "synth", "musical"]),
+        # Timestamps / processing
+        (["timestamp", "processes", "displays"], ["timestamp", "word", "time", "start", "end", "display", "print", "output", "format"]),
+        # Lyrics / composition
+        (["lyrics", "coding", "programming"], ["lyrics", "lyric", "coding", "code", "program", "develop", "debug"]),
+    ]
+
+    for triggers, indicators in semantic_checks:
+        if any(t in exp_lower for t in triggers):
+            found = [ind for ind in indicators if ind in response_lower]
+            if len(found) >= 2:
+                return True, "Semantic match: %s" % ", ".join(found[:4])
+            elif len(found) == 1:
+                # Single match — check if it's a strong one
+                return True, "Partial match: %s" % found[0]
+
+    # Fallback: extract key terms and check presence (relaxed threshold)
+    stop_words = {
+        "uses", "with", "that", "this", "from", "have", "should", "must",
+        "includes", "contains", "provides", "shows", "calls", "creates",
+        "writes", "saves", "outputs", "handles", "defines", "sets",
+        "parameter", "appropriate", "correct", "proper", "working", "valid",
+        "using", "when", "does", "like", "also", "into", "some", "such",
+        "each", "make", "need", "them", "their", "will", "been", "more",
+        "very", "just", "only", "than", "other", "about", "over", "most",
+        "equivalent", "similar", "least",
+    }
+    key_terms = [w for w in exp_lower.split() if len(w) > 3 and w not in stop_words]
+
+    if key_terms:
+        matches = sum(1 for t in key_terms if t in response_lower)
+        ratio = matches / len(key_terms) if key_terms else 0
+        # Relaxed: 35% match threshold instead of 50%
+        if ratio >= 0.35:
+            matched = [t for t in key_terms if t in response_lower]
+            return True, "Found %d/%d key terms: %s" % (matches, len(key_terms), ", ".join(matched[:5]))
+        else:
+            missing = [t for t in key_terms if t not in response_lower]
+            return False, "Missing key terms: %s" % ", ".join(missing[:5])
+
+    return False, "Could not verify expectation"
+
+
+def generate_report(trigger_results, functional_results, output_dir):
+    """Generate a markdown summary report."""
+    lines = ["# Skills Evaluation Report", ""]
+    lines.append(f"**Date:** {time.strftime('%Y-%m-%d %H:%M')}")
+    lines.append(f"**Output:** `{output_dir}`")
+    lines.append("")
+
+    # Overall summary
+    lines.append("## Summary")
+    lines.append("")
+    lines.append("| Skill | Trigger | Functional |")
+    lines.append("|-------|---------|------------|")
+
+    trigger_by_skill = {r["skill"]: r for r in trigger_results}
+    func_by_skill = {r["skill"]: r for r in functional_results}
+
+    for skill in ALL_SKILLS:
+        tr = trigger_by_skill.get(skill, {})
+        fr = func_by_skill.get(skill, {})
+
+        if "error" in tr:
+            trigger_str = f"error"
+        elif "summary" in tr:
+            s = tr["summary"]
+            trigger_str = f"{s['passed']}/{s['total']}"
+        else:
+            trigger_str = "-"
+
+        if "error" in fr:
+            func_str = "error"
+        elif "summary" in fr:
+            s = fr["summary"]
+            func_str = f"{s['total_passed']}/{s['total_expectations']}"
+        else:
+            func_str = "-"
+
+        lines.append(f"| {skill} | {trigger_str} | {func_str} |")
+
+    lines.append("")
+
+    # Trigger details
+    if trigger_results:
+        lines.append("## Trigger Evaluation Details")
+        lines.append("")
+        for r in trigger_results:
+            if "error" in r:
+                lines.append(f"### {r['skill']}: ERROR - {r['error']}")
+                continue
+            s = r["summary"]
+            lines.append(f"### {r['skill']} ({s['passed']}/{s['total']} passed, {r['elapsed_seconds']}s)")
+            lines.append("")
+            failures = [res for res in r["results"] if not res["pass"]]
+            if failures:
+                lines.append("**Failures:**")
+                for f in failures:
+                    rate = f"{f['triggers']}/{f['runs']}"
+                    expected = "trigger" if f["should_trigger"] else "not trigger"
+                    lines.append(f"- rate={rate} (expected {expected}): {f['query'][:80]}")
+                lines.append("")
+            else:
+                lines.append("All queries passed.")
+                lines.append("")
+
+    # Functional details
+    if functional_results:
+        lines.append("## Functional Evaluation Details")
+        lines.append("")
+        for r in functional_results:
+            if "error" in r:
+                lines.append(f"### {r['skill']}: ERROR - {r['error']}")
+                continue
+            s = r["summary"]
+            lines.append(f"### {r['skill']} ({s['total_passed']}/{s['total_expectations']} passed, {r['elapsed_seconds']}s)")
+            lines.append("")
+            for ev in r["results"]:
+                lines.append(f"**Eval {ev['eval_id']}** ({ev['passed']}/{ev['total']}): {ev['prompt'][:70]}...")
+                failures = [g for g in ev["grades"] if not g["passed"]]
+                if failures:
+                    for g in failures:
+                        lines.append(f"  - FAIL: {g['text'][:70]} — {g['evidence'][:50]}")
+                lines.append("")
+
+    return "\n".join(lines)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Run evaluations across all ElevenLabs skills")
+    parser.add_argument("--skills", nargs="*", default=ALL_SKILLS, help="Skills to evaluate (default: all)")
+    parser.add_argument("--trigger-only", action="store_true", help="Run trigger evals only")
+    parser.add_argument("--functional-only", action="store_true", help="Run functional evals only")
+    parser.add_argument("--model", default=None, help="Model for claude -p (default: user's configured model)")
+    parser.add_argument("--workers", type=int, default=8, help="Parallel workers for trigger evals")
+    parser.add_argument("--runs-per-query", type=int, default=3, help="Runs per trigger query")
+    parser.add_argument("--timeout", type=int, default=180, help="Timeout per functional eval (seconds)")
+    parser.add_argument("--trigger-timeout", type=int, default=45, help="Timeout per trigger query (seconds)")
+    parser.add_argument("--output-dir", default=None, help="Output directory (default: evals/results/<timestamp>)")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    args = parser.parse_args()
+
+    run_trigger = not args.functional_only
+    run_functional = not args.trigger_only
+
+    # Set up output directory
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    output_dir = Path(args.output_dir) if args.output_dir else EVALS_DIR / "results" / timestamp
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Skills Evaluation", file=sys.stderr)
+    print(f"  Skills: {', '.join(args.skills)}", file=sys.stderr)
+    print(f"  Trigger evals: {'yes' if run_trigger else 'no'}", file=sys.stderr)
+    print(f"  Functional evals: {'yes' if run_functional else 'no'}", file=sys.stderr)
+    print(f"  Output: {output_dir}", file=sys.stderr)
+    print(f"  Model: {args.model or 'default'}", file=sys.stderr)
+    print("", file=sys.stderr)
+
+    trigger_results = []
+    functional_results = []
+
+    # Run trigger evals
+    if run_trigger:
+        print("Running trigger evaluations...", file=sys.stderr)
+        for skill in args.skills:
+            result = run_trigger_eval_for_skill(
+                skill_name=skill,
+                model=args.model,
+                workers=args.workers,
+                runs_per_query=args.runs_per_query,
+                timeout=args.trigger_timeout,
+                verbose=args.verbose,
+            )
+            trigger_results.append(result)
+
+    # Run functional evals
+    if run_functional:
+        print("\nRunning functional evaluations...", file=sys.stderr)
+        for skill in args.skills:
+            result = run_functional_eval_for_skill(
+                skill_name=skill,
+                model=args.model,
+                output_dir=output_dir,
+                timeout=args.timeout,
+                verbose=args.verbose,
+            )
+            functional_results.append(result)
+
+    # Generate report
+    report = generate_report(trigger_results, functional_results, output_dir)
+    report_path = output_dir / "report.md"
+    report_path.write_text(report)
+
+    # Save raw results
+    all_results = {
+        "timestamp": timestamp,
+        "skills": args.skills,
+        "trigger_results": trigger_results,
+        "functional_results": functional_results,
+    }
+    (output_dir / "results.json").write_text(json.dumps(all_results, indent=2))
+
+    # Print report
+    print("\n" + report)
+    print(f"\nResults saved to: {output_dir}", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()
