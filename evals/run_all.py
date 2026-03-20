@@ -2,6 +2,12 @@
 from __future__ import annotations
 """Run trigger and functional evaluations across all ElevenLabs skills.
 
+Functional evals run cursor-agent with workspace = each eval's scratch folder only; skill
+SKILL.md files and the rest of the repo are not writable by the nested agent.
+
+Trigger evals use a temp directory (only ``.claude/commands/``) as workspace so nothing is
+written under the repo's ``.claude/`` and the nested agent cannot create folders in the repo root.
+
 Usage:
     # Run everything
     python evals/run_all.py
@@ -16,15 +22,17 @@ Usage:
     python evals/run_all.py --skills text-to-speech agents
 
     # Custom model and parallelism
-    python evals/run_all.py --model claude-sonnet-4-6 --workers 5
+    python evals/run_all.py --model gpt-5.4-high --workers 5
 """
 
 import argparse
 import json
 import os
 import select
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import uuid
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -32,6 +40,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).parent.parent
 EVALS_DIR = Path(__file__).parent
+
+# Cursor Agent CLI (https://cursor.com/docs/cli/using); override with CURSOR_AGENT if needed.
+CURSOR_AGENT_BIN = os.environ.get("CURSOR_AGENT", "cursor-agent")
+# Default GPT-5.4 tier (see `cursor-agent --list-models`).
+DEFAULT_CURSOR_MODEL = "composer-2-fast"
 
 ALL_SKILLS = [
     "text-to-speech",
@@ -41,14 +54,6 @@ ALL_SKILLS = [
     "music",
     "setup-api-key",
 ]
-
-
-def find_project_root() -> Path:
-    current = Path.cwd()
-    for parent in [current, *current.parents]:
-        if (parent / ".claude").is_dir():
-            return parent
-    return current
 
 
 def parse_skill_md(skill_path: Path) -> tuple:
@@ -93,26 +98,26 @@ def run_single_trigger_query(
     skill_name: str,
     skill_description: str,
     timeout: int,
-    project_root: str,
     model: str = None,
 ) -> bool:
     """Run a single query and return whether the skill was triggered.
 
-    Checks if Claude uses the Skill tool for the target skill name.
-    Works with both installed skills (in ~/.claude/skills/) and
-    temporary command files.
+    Uses a throwaway temp workspace (only ``.claude/commands/``) so the nested
+    agent cannot create files in the real repo root. Works with installed skills
+    (e.g. under ``~/.cursor`` / global config) and the temporary slash command.
     """
     unique_id = uuid.uuid4().hex[:8]
     clean_name = "%s-skill-%s" % (skill_name, unique_id)
-    project_commands_dir = Path(project_root) / ".claude" / "commands"
-    command_file = project_commands_dir / ("%s.md" % clean_name)
 
     # Names to match: both the real skill name and the temp command name
     match_names = {skill_name, clean_name}
 
+    workspace_dir = tempfile.mkdtemp(prefix="skills-eval-trigger-")
     try:
-        # Create temp command file as fallback for skills not installed globally
+        project_commands_dir = Path(workspace_dir) / ".claude" / "commands"
         project_commands_dir.mkdir(parents=True, exist_ok=True)
+        command_file = project_commands_dir / ("%s.md" % clean_name)
+
         indented_desc = "\n  ".join(skill_description.split("\n"))
         command_content = (
             "---\n"
@@ -124,22 +129,26 @@ def run_single_trigger_query(
         ) % (indented_desc, skill_name, skill_description)
         command_file.write_text(command_content)
 
+        m = model or DEFAULT_CURSOR_MODEL
         cmd = [
-            "claude",
-            "-p", query,
+            CURSOR_AGENT_BIN,
+            "-p",
             "--output-format", "stream-json",
-            "--verbose",
+            "--trust",
+            "--workspace",
+            workspace_dir,
+            "--model",
+            m,
+            query,
         ]
-        if model:
-            cmd.extend(["--model", model])
 
-        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+        env = dict(os.environ)
 
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            cwd=project_root,
+            cwd=workspace_dir,
             env=env,
         )
 
@@ -217,8 +226,7 @@ def run_single_trigger_query(
 
         return triggered
     finally:
-        if command_file.exists():
-            command_file.unlink()
+        shutil.rmtree(workspace_dir, ignore_errors=True)
 
 
 def run_trigger_eval_for_skill(
@@ -240,7 +248,6 @@ def run_trigger_eval_for_skill(
 
     eval_set = json.loads(trigger_file.read_text())
     name, description, _ = parse_skill_md(skill_path)
-    project_root = find_project_root()
 
     if verbose:
         print("\n" + "=" * 60, file=sys.stderr)
@@ -262,7 +269,6 @@ def run_trigger_eval_for_skill(
                     name,
                     description,
                     timeout,
-                    str(project_root),
                     model,
                 )
                 future_to_info[future] = (item, run_idx)
@@ -323,7 +329,7 @@ def run_functional_eval_for_skill(
     timeout: int,
     verbose: bool,
 ) -> dict:
-    """Run functional evals for a single skill using claude -p."""
+    """Run functional evals for a single skill using cursor-agent -p."""
     evals_file = EVALS_DIR / skill_name / "evals.json"
     skill_path = REPO_ROOT / skill_name
 
@@ -356,23 +362,36 @@ def run_functional_eval_for_skill(
         eval_dir = skill_output_dir / f"eval-{eval_id}"
         eval_dir.mkdir(parents=True, exist_ok=True)
 
-        # Build prompt that includes skill content
+        # Build prompt that includes skill content. Workspace is only eval_dir so the nested
+        # agent cannot edit skill packages or other repo files (eval runs must not "fix" skills).
         full_prompt = (
             f"You have access to the following skill for reference. "
             f"Use its guidance to complete the task.\n\n"
             f"<skill>\n{skill_md}\n</skill>\n\n"
             f"Task: {prompt}\n\n"
-            f"Write all code and output to: {eval_dir}/outputs/\n"
-            f"Create an outputs/ directory if needed."
+            f"This workspace is an isolated eval scratch directory. "
+            f"Put all new files under ./outputs/ (create it if needed). "
+            f"Do not edit, create, or delete anything outside this directory.\n"
         )
 
-        # Run claude -p with text output for readable response
-        cmd = ["claude", "-p", full_prompt, "--output-format", "text",
-               "--allowedTools", "Write,Edit,Bash,Read,Glob,Grep"]
-        if model:
-            cmd.extend(["--model", model])
+        # Run cursor-agent -p with text output for readable response (--force: non-interactive edits).
+        # --workspace is eval_dir (not REPO_ROOT) so only outputs/ here are writable, not */SKILL.md.
+        m = model or DEFAULT_CURSOR_MODEL
+        cmd = [
+            CURSOR_AGENT_BIN,
+            "-p",
+            "--output-format",
+            "text",
+            "--force",
+            "--trust",
+            "--workspace",
+            str(eval_dir),
+            "--model",
+            m,
+            full_prompt,
+        ]
 
-        env = {k: v for k, v in os.environ.items() if k != "CLAUDECODE"}
+        env = dict(os.environ)
 
         t0 = time.time()
         response_text = ""
@@ -382,7 +401,7 @@ def run_functional_eval_for_skill(
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                cwd=str(REPO_ROOT),
+                cwd=str(eval_dir),
                 env=env,
             )
             elapsed = time.time() - t0
@@ -717,7 +736,11 @@ def main():
     parser.add_argument("--skills", nargs="*", default=ALL_SKILLS, help="Skills to evaluate (default: all)")
     parser.add_argument("--trigger-only", action="store_true", help="Run trigger evals only")
     parser.add_argument("--functional-only", action="store_true", help="Run functional evals only")
-    parser.add_argument("--model", default=None, help="Model for claude -p (default: user's configured model)")
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_CURSOR_MODEL,
+        help="Model for cursor-agent (default: %(default)s; see `cursor-agent --list-models`)",
+    )
     parser.add_argument("--workers", type=int, default=8, help="Parallel workers for trigger evals")
     parser.add_argument("--runs-per-query", type=int, default=3, help="Runs per trigger query")
     parser.add_argument("--timeout", type=int, default=180, help="Timeout per functional eval (seconds)")
@@ -739,7 +762,7 @@ def main():
     print(f"  Trigger evals: {'yes' if run_trigger else 'no'}", file=sys.stderr)
     print(f"  Functional evals: {'yes' if run_functional else 'no'}", file=sys.stderr)
     print(f"  Output: {output_dir}", file=sys.stderr)
-    print(f"  Model: {args.model or 'default'}", file=sys.stderr)
+    print(f"  Model: {args.model}", file=sys.stderr)
     print("", file=sys.stderr)
 
     trigger_results = []

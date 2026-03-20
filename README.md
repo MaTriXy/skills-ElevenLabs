@@ -60,13 +60,15 @@ python3 evals/run_all.py --functional-only -v
 # Specific skills
 python3 evals/run_all.py --skills text-to-speech agents -v
 
-# Custom model
-python3 evals/run_all.py --model claude-sonnet-4-6 -v
+# Custom model (see `cursor-agent --list-models`)
+python3 evals/run_all.py --model gpt-5.4-high -v
 ```
 
 Results are saved to `evals/results/<timestamp>/` with a `report.md` summary and `results.json` for programmatic access.
 
-Requires the [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude` command) to be installed and configured.
+Functional evals use an isolated `cursor-agent` workspace per test case (under that results tree); they do **not** modify skill sources under each skill’s directory.
+
+Requires the [Cursor Agent CLI](https://cursor.com/docs/cli/using) (`cursor-agent` on your `PATH`; override binary with `CURSOR_AGENT`) and Cursor authentication (`cursor-agent login` or `CURSOR_API_KEY`).
 
 ## License
 
