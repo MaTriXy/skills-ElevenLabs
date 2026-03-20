@@ -603,10 +603,18 @@ def check_expectation(response_lower, response_text, expectation):
         ("elevenlabs_api_key", "elevenlabs_api_key", "API key env var"),
     ]
 
+    matched_pattern_checks = []
+    seen_pattern_searches = set()
     for trigger, search, label in pattern_checks:
-        if trigger in exp_lower:
-            found = search in response_lower
-            return found, ("%s found" % label) if found else ("%s not found" % label)
+        if trigger in exp_lower and search not in seen_pattern_searches:
+            matched_pattern_checks.append((search, label))
+            seen_pattern_searches.add(search)
+    if matched_pattern_checks:
+        missing = [label for search, label in matched_pattern_checks if search not in response_lower]
+        if missing:
+            return False, "%s not found" % missing[0]
+        labels = [label for _, label in matched_pattern_checks]
+        return True, "Pattern match: %s" % ", ".join(labels[:4])
 
     # Semantic checks for natural language expectations
     semantic_checks = [
@@ -638,6 +646,18 @@ def check_expectation(response_lower, response_text, expectation):
         (["lyrics", "coding", "programming"], ["lyrics", "lyric", "coding", "code", "program", "develop", "debug"]),
     ]
 
+    weak_single_indicators = {
+        "audio",
+        "check",
+        "code",
+        "output",
+        "play",
+        "print",
+        "prompt",
+        "system",
+        "time",
+    }
+
     for triggers, indicators in semantic_checks:
         if any(t in exp_lower for t in triggers):
             found = [ind for ind in indicators if ind in response_lower]
@@ -645,7 +665,8 @@ def check_expectation(response_lower, response_text, expectation):
                 return True, "Semantic match: %s" % ", ".join(found[:4])
             elif len(found) == 1:
                 # Single match — check if it's a strong one
-                return True, "Partial match: %s" % found[0]
+                if found[0] not in weak_single_indicators:
+                    return True, "Strong semantic match: %s" % found[0]
 
     # Fallback: extract key terms and check presence (relaxed threshold)
     stop_words = {
@@ -795,6 +816,9 @@ def main():
     parser.add_argument("--output-dir", default=None, help="Output directory (default: evals/results/<timestamp>)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
     args = parser.parse_args()
+
+    if args.trigger_only and args.functional_only:
+        parser.error("--trigger-only and --functional-only are mutually exclusive")
 
     run_trigger = not args.functional_only
     run_functional = not args.trigger_only
