@@ -156,6 +156,52 @@ def run_single_trigger_query(
         start_time = time.time()
         buffer = ""
 
+        def _process_stream_line(raw_line: str) -> bool:
+            """Parse one stream-json line. Returns True if processing should stop."""
+            nonlocal triggered
+            line = raw_line.strip()
+            if not line:
+                return False
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                return False
+
+            if event.get("type") == "assistant":
+                message = event.get("message", {})
+                for block in message.get("content", []):
+                    if block.get("type") != "tool_use":
+                        continue
+                    tool_name = block.get("name", "")
+                    tool_input = block.get("input", {})
+
+                    if tool_name == "Skill":
+                        skill_arg = tool_input.get("skill", "")
+                        if any(n in skill_arg for n in match_names):
+                            triggered = True
+
+                    elif tool_name == "Read":
+                        file_path = tool_input.get("file_path", "")
+                        if any(n in file_path for n in match_names):
+                            triggered = True
+
+                    elif tool_name == "ToolSearch":
+                        continue
+
+            elif event.get("type") == "result":
+                return True
+
+            return triggered
+
+        def _flush_complete_lines() -> bool:
+            """Drain newline-terminated JSON objects from buffer. Returns True to stop."""
+            nonlocal buffer
+            while "\n" in buffer:
+                raw_line, buffer = buffer.split("\n", 1)
+                if _process_stream_line(raw_line):
+                    return True
+            return False
+
         try:
             while time.time() - start_time < timeout:
                 if process.poll() is not None:
@@ -173,51 +219,12 @@ def run_single_trigger_query(
                     break
                 buffer += chunk.decode("utf-8", errors="replace")
 
-                while "\n" in buffer:
-                    line, buffer = buffer.split("\n", 1)
-                    line = line.strip()
-                    if not line:
-                        continue
-
-                    try:
-                        event = json.loads(line)
-                    except json.JSONDecodeError:
-                        continue
-
-                    # Check assistant messages for tool_use blocks
-                    if event.get("type") == "assistant":
-                        message = event.get("message", {})
-                        for block in message.get("content", []):
-                            if block.get("type") != "tool_use":
-                                continue
-                            tool_name = block.get("name", "")
-                            tool_input = block.get("input", {})
-
-                            # Match Skill tool calls
-                            if tool_name == "Skill":
-                                skill_arg = tool_input.get("skill", "")
-                                if any(n in skill_arg for n in match_names):
-                                    triggered = True
-
-                            # Match Read tool calls (reading SKILL.md)
-                            elif tool_name == "Read":
-                                file_path = tool_input.get("file_path", "")
-                                if any(n in file_path for n in match_names):
-                                    triggered = True
-
-                            # Match ToolSearch (loading Skill tool)
-                            elif tool_name == "ToolSearch":
-                                # ToolSearch is just loading tools, skip
-                                continue
-
-                    # Early exit on result
-                    elif event.get("type") == "result":
-                        break
-
-                    if triggered:
-                        break
-                if triggered:
+                if _flush_complete_lines():
                     break
+
+            # Process data read on process exit, EOF, or timeout — was skipped when the inner
+            # loop only ran after non-empty read chunks.
+            _flush_complete_lines()
 
         finally:
             if process.poll() is None:
@@ -438,7 +445,7 @@ def run_functional_eval_for_skill(
             elapsed = time.time() - t0
             success = False
             response_text = "[TIMED OUT after %ds]" % timeout
-            grades = [{"text": e, "passed": False, "evidence": "Timed out"} for e in expectations]
+            grades = [{"text": exp, "passed": False, "evidence": "Timed out"} for exp in expectations]
             passed = 0
             total = len(expectations)
         except Exception as exc:
@@ -513,6 +520,20 @@ def check_expectation(response_lower, response_text, expectation):
     """Check a single expectation against the response. Returns (passed, evidence)."""
     exp_lower = expectation.lower()
 
+    # Negative deprecation checks must run before generic "from elevenlabs import" pattern
+    # matching; otherwise expectations that quote the forbidden import pass incorrectly.
+    if "not" in exp_lower and ("deprecated" in exp_lower or "do not use" in exp_lower):
+        deprecated_patterns = [
+            "from elevenlabs import generate",
+            "from elevenlabs import voices",
+            'require("elevenlabs")',
+            "npm install elevenlabs",
+        ]
+        found_deprecated = [p for p in deprecated_patterns if p in response_lower]
+        if found_deprecated:
+            return False, "Found deprecated pattern: %s" % found_deprecated[0]
+        return True, "No deprecated patterns found"
+
     # Direct pattern checks — look for specific API patterns in the response
     pattern_checks = [
         # SDK imports
@@ -551,19 +572,6 @@ def check_expectation(response_lower, response_text, expectation):
         if trigger in exp_lower:
             found = search in response_lower
             return found, ("%s found" % label) if found else ("%s not found" % label)
-
-    # Handle NOT/negative expectations (deprecated patterns)
-    if "not" in exp_lower and ("deprecated" in exp_lower or "do not use" in exp_lower):
-        deprecated_patterns = [
-            "from elevenlabs import generate",
-            "from elevenlabs import voices",
-            'require("elevenlabs")',
-            "npm install elevenlabs",
-        ]
-        found_deprecated = [p for p in deprecated_patterns if p in response_lower]
-        if found_deprecated:
-            return False, "Found deprecated pattern: %s" % found_deprecated[0]
-        return True, "No deprecated patterns found"
 
     # Semantic checks for natural language expectations
     semantic_checks = [
