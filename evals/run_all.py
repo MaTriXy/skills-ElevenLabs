@@ -592,7 +592,7 @@ def check_expectation(response_lower, response_text, expectation):
         ("music_length_ms", "music_length_ms", "music duration"),
         ("diariz", "diariz", "diarization"),
         # JS SDK
-        ("@elevenlabs/elevenlabs-js", "@elevenlabs/", "JS SDK package"),
+        ("@elevenlabs/elevenlabs-js", "@elevenlabs/elevenlabs-js", "JS SDK package"),
         ("@elevenlabs/", "@elevenlabs/", "JS SDK package"),
         # Agents
         ("elevenlabs agents", "elevenlabs agent", "CLI agents command"),
