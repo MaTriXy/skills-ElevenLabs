@@ -595,7 +595,7 @@ def check_expectation(response_lower, response_text, expectation):
         ("@elevenlabs/elevenlabs-js", "@elevenlabs/elevenlabs-js", "JS SDK package"),
         ("@elevenlabs/", "@elevenlabs/", "JS SDK package"),
         # Agents
-        ("elevenlabs agents", "elevenlabs agent", "CLI agents command"),
+        ("elevenlabs agents", "elevenlabs agents", "CLI agents command"),
         ("convai", "convai", "ConvAI widget"),
         ("agent-id", "agent-id", "agent-id attribute"),
         ("agent_id", "agent_id", "agent_id attribute"),
