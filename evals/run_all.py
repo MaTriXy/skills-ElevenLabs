@@ -5,8 +5,9 @@ from __future__ import annotations
 Functional evals run cursor-agent with workspace = each eval's scratch folder only; skill
 SKILL.md files and the rest of the repo are not writable by the nested agent.
 
-Trigger evals use a temp directory (only ``.claude/commands/``) as workspace so nothing is
-written under the repo's ``.claude/`` and the nested agent cannot create folders in the repo root.
+Trigger evals run cursor-agent in an isolated temporary workspace directory (outside the repo),
+with a ``.claude/commands/`` tree created inside that temp workspace so nothing is written under
+the repo's own ``.claude/`` and the nested agent cannot create folders in the repo root.
 
 Usage:
     # Run everything
