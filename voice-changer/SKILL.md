@@ -8,9 +8,16 @@ metadata: {"openclaw": {"requires": {"env": ["ELEVENLABS_API_KEY"]}, "primaryEnv
 
 # ElevenLabs Voice Changer
 
-Transform the voice in an audio recording into a different target voice. Voice Changer (also known as speech-to-speech) keeps the original performance — emotion, pacing, intonation, breaths — and only swaps who is speaking.
+Transform the voice in an audio recording into a different target voice. Voice Changer (previously called Speech-to-Speech — the API endpoint and SDK methods still use the `speech_to_speech` / `speechToSpeech` name) keeps the original performance — emotion, pacing, intonation, breaths, whispers, laughs, cries — and only swaps who is speaking.
 
 > **Setup:** See [Installation Guide](references/installation.md). For JavaScript, use `@elevenlabs/*` packages only.
+
+## Key Facts
+
+- **Maximum input length:** 5 minutes per request — split longer recordings into chunks and stitch the outputs.
+- **Maximum file size:** 50 MB per request — compress to MP3 if your source is larger.
+- **Pricing:** 1,000 characters per minute of audio processed (duration-based, not text-based).
+- **Recommended model:** `eleven_multilingual_sts_v2` — often outperforms `eleven_english_sts_v2` even for English-only content.
 
 ## Quick Start
 
@@ -73,15 +80,21 @@ curl -X POST "https://api.elevenlabs.io/v1/speech-to-speech/JBFqnCBsd6RMkjVDRZzb
 | `seed` | integer | — | Best-effort deterministic sampling (0 – 4294967295) |
 | `remove_background_noise` | boolean | `false` | Run the isolation model on the input before conversion |
 | `file_format` | string | `other` | `other` for any encoded audio, or `pcm_s16le_16` for 16-bit PCM mono @ 16kHz little-endian (lower latency) |
+| `optimize_streaming_latency` | int (query) | — | 0–4. Trade quality for latency. `4` is fastest but disables the text normalizer |
+| `enable_logging` | boolean (query) | `true` | Set to `false` for zero-retention mode (enterprise only — disables history/stitching) |
 
 ## Models
 
 | Model ID | Languages | Best For |
 |----------|-----------|----------|
-| `eleven_multilingual_sts_v2` | 29 | Default choice — highest-quality conversion, multilingual |
-| `eleven_english_sts_v2` | English | English-only, default on the API |
+| `eleven_multilingual_sts_v2` | 29 | Recommended for everything — often outperforms the English model even on English audio |
+| `eleven_english_sts_v2` | English | API default — English-only fallback |
 
-Only models whose `can_do_voice_conversion` property is true can be used here. Voice Changer does not currently have a low-latency "flash/turbo" tier — if you need one, keep `pcm_s16le_16` input and an `opus_*` / low-bitrate `mp3_*` output.
+Only models whose `can_do_voice_conversion` property is true can be used here. Voice Changer does not currently have a low-latency "flash/turbo" tier — if you need one, keep `pcm_s16le_16` input, an `opus_*` / low-bitrate `mp3_*` output, and raise `optimize_streaming_latency`.
+
+### Languages (`eleven_multilingual_sts_v2`)
+
+English (US, UK, AU, CA), Japanese, Chinese, German, Hindi, French (FR, CA), Korean, Portuguese (BR, PT), Italian, Spanish (ES, MX), Indonesian, Dutch, Turkish, Filipino, Polish, Swedish, Bulgarian, Romanian, Arabic (SA, AE), Czech, Greek, Finnish, Croatian, Malay, Slovak, Danish, Tamil, Ukrainian, Russian.
 
 ## Target Voices
 
@@ -207,6 +220,16 @@ audio_stream = client.speech_to_speech.convert(
     seed=12345,
 )
 ```
+
+## Input Audio Best Practices
+
+The conversion quality is bounded by the input recording — the model can only swap the timbre, not rescue a bad source. A few practical rules:
+
+- **Be expressive.** Whisper, shout, laugh, cry — the model preserves all of it. Flat input gives you flat output.
+- **Watch microphone gain.** Too quiet and the model under-detects phonemes; too loud and clipping bleeds into the conversion. Aim for healthy peaks, no clipping.
+- **Accent and cadence transfer from the source, not the target.** If you read in an American accent and target the British "George" voice, you get George's timbre with an American accent. To dub *into* a different accent or language, record someone speaking in that target accent/language and convert into a cloned/library voice.
+- **Clean up noise first.** Either pass `remove_background_noise=True` or run the source through the voice-isolator skill before conversion. Noise hurts more here than in TTS.
+- **Split long recordings.** Anything over 5 minutes must be chunked. Cut at natural pauses, convert each piece, and concatenate the resulting audio.
 
 ## Common Workflows
 
