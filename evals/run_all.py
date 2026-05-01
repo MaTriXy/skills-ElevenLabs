@@ -69,6 +69,7 @@ ALL_SKILLS = [
     "agents",
     "sound-effects",
     "music",
+    "voice-changer",
     "voice-isolator",
     "setup-api-key",
 ]
@@ -594,6 +595,9 @@ def check_expectation(response_lower, response_text, expectation):
         ("speechtotext.convert", "speechtotext.convert", "JS STT convert"),
         ("text_to_sound_effects.convert", "text_to_sound_effects.convert", "SFX convert"),
         ("music.compose", "music.compose", "music compose"),
+        ("speech_to_speech.convert", "speech_to_speech.convert", "voice changer convert"),
+        ("speechtospeech.convert", "speechtospeech.convert", "JS voice changer convert"),
+        ("eleven_multilingual_sts_v2", "eleven_multilingual_sts_v2", "multilingual STS model"),
         ("audio_isolation.convert", "audio_isolation.convert", "audio isolation convert"),
         ("audioisolation.convert", "audioisolation.convert", "JS audio isolation convert"),
         # Parameters
