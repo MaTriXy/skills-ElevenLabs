@@ -177,7 +177,7 @@ Section the prompt with markdown headings — the model prioritizes and interpre
 # Goal          – what success looks like (numbered for multi-step flows)
 ```
 
-Keep instructions short and action-based. Mark critical steps with "This step is important." Configure refusal/safety rules via `platform_settings.guardrails` rather than embedding them in the prompt (see [Guardrails](#guardrails)).
+Keep instructions short and action-based. Mark critical steps with "This step is important." For critical refusal/safety rules, include concise instructions in the prompt and also configure independent custom Guardrails via `platform_settings.guardrails` (see [Guardrails](#guardrails)).
 
 ## Tools
 
