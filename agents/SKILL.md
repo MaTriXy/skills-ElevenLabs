@@ -274,7 +274,7 @@ Route conversations through discrete steps with branching logic. Define under th
 }
 ```
 
-Include `position` (`{x, y}`) on every node so the editor renders cleanly. Start at `y=0`, put `end` at the bottom, and space branches horizontally at `x=-150` and `x=150`. Keep workflows to 4-7 nodes and always have a path to `end`.
+Include `position` (`{x, y}`) on every node so the editor renders cleanly. Start at `y=0`, put `end` at the bottom, and space branches horizontally at `x=-150` and `x=150`; suggested spacing is 200px vertical between levels and 300px horizontal between branches. Keep workflows to 4-7 nodes and always have a path to `end`.
 
 ## Guardrails
 
