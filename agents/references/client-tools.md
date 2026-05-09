@@ -182,7 +182,7 @@ context as a lazily evaluated JSON history object with user, agent, and tool ent
 
 MCP server configuration supports the same `pre_tool_speech`, `execution_mode`, and
 `response_timeout_secs` controls at the server level, with per-tool overrides in
-`tool_config_overrides`. MCP timeouts default to 30 seconds and must be 5-120 seconds.
+`tool_config_overrides`. MCP timeouts default to 30 seconds and must be 5-300 seconds.
 
 **Note:** The default `api_schema.method` is `GET`. Always set `"method": "POST"` explicitly for webhook tools that send request bodies.
 
@@ -511,7 +511,7 @@ app.post("/webhook/lookup_order", async (req, res) => {
 
 ### Timeouts
 
-Set reasonable timeouts for webhooks using `response_timeout_secs` (5-120 seconds, default 20). MCP server tool calls use the same field with a 30-second default:
+Set reasonable timeouts for webhooks using `response_timeout_secs` (5-120 seconds, default 20). MCP server tool calls use the same field with a 30-second default and a 5-300 second range:
 
 ```python
 {

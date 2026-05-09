@@ -197,10 +197,10 @@ to resolve per-environment auth connections at runtime.
 
 | Provider | Model IDs |
 |----------|-----------|
-| OpenAI | `gpt-5`, `gpt-5.4`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
-| Anthropic | `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku` |
+| OpenAI | `gpt-5`, `gpt-5.4`, `gpt-5.4-2026-03-05`, `gpt-5.5`, `gpt-5.5-2026-04-23`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `gpt-4o`, `gpt-4o-mini`, `gpt-4-turbo` |
+| Anthropic | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-sonnet-4`, `claude-haiku-4-5`, `claude-3-7-sonnet`, `claude-3-5-sonnet`, `claude-3-haiku` |
 | Google | `gemini-3.1-flash-lite-preview`, `gemini-3.1-pro-preview`, `gemini-3-pro-preview`, `gemini-3-flash-preview`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, `gemini-2.0-flash-lite` |
-| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `qwen35-35b-a3b`, `qwen35-397b-a17b`, `gpt-oss-120b` (hosted, ultra-low latency) |
+| ElevenLabs | `glm-45-air-fp8`, `qwen3-30b-a3b`, `qwen36-35b-a3b`, `qwen35-35b-a3b`, `qwen35-397b-a17b`, `gpt-oss-120b` (hosted, ultra-low latency) |
 | Custom | `custom-llm` (requires custom_llm config) |
 
 Use `GET /v1/convai/llm/list` to inspect the current model catalog, including deprecation state, token/context limits, and capability flags such as image-input support.
@@ -468,6 +468,43 @@ const agents = await client.conversationalAi.agents.list();
 
 ```bash
 curl -X GET "https://api.elevenlabs.io/v1/convai/agents" -H "xi-api-key: $ELEVENLABS_API_KEY"
+```
+
+### SDK: Manage Conversation Tags
+
+Use tags to categorize conversation history and filter list views:
+
+```python
+tag = client.conversational_ai.conversations.tags.create(
+    title="Urgent Support",
+    description="Conversations that need same-day follow-up",
+)
+
+client.conversational_ai.conversations.tags.assign(
+    conversation_id="conversation_id",
+    tag_ids=[tag.tag_id],
+)
+
+conversations = client.conversational_ai.conversations.list(
+    tag_ids=[tag.tag_id],
+    exclude_statuses=["initiated", "in-progress", "processing"],
+)
+```
+
+```javascript
+const tag = await client.conversationalAi.conversations.tags.create({
+  title: "Urgent Support",
+  description: "Conversations that need same-day follow-up",
+});
+
+await client.conversationalAi.conversations.tags.assign("conversation_id", {
+  tagIds: [tag.tagId],
+});
+
+const conversations = await client.conversationalAi.conversations.list({
+  tagIds: [tag.tagId],
+  excludeStatuses: ["initiated", "in-progress", "processing"],
+});
 ```
 
 ### SDK: Get Agent
