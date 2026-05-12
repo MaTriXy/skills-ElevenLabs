@@ -6,8 +6,8 @@ Functional evals run cursor-agent with workspace = each eval's scratch folder on
 SKILL.md files and the rest of the repo are not writable by the nested agent.
 
 Trigger evals run cursor-agent in an isolated temporary workspace directory (outside the repo),
-with a ``.claude/commands/`` tree created inside that temp workspace so nothing is written under
-the repo's own ``.claude/`` and the nested agent cannot create folders in the repo root.
+with the skill staged under that workspace's Cursor project skills directory so nothing is
+written under the real repo and the nested agent cannot create folders in the repo root.
 
 Usage:
     # Run everything
@@ -64,14 +64,10 @@ def _ensure_cursor_agent_available() -> None:
 
 _ensure_cursor_agent_available()
 
-# cursor-agent reads skills from ~/.claude/skills/ and advertises them to the model
-# (verified by probe — workspace-local dirs and ~/.cursor/skills-cursor are NOT honored
-# for fresh installs). Eval installs use a "-eval-<runid>" suffix so they can never
-# collide with the user's real skills and are safe to sweep on startup.
-#
-# Side effect: this dir is shared with the user's Claude Code session, so installs are
-# briefly visible to other tools. The unique suffix and try/finally cleanup make this safe.
-CLAUDE_SKILLS_DIR = Path.home() / ".claude" / "skills"
+# Cursor discovers project skills from `.cursor/skills/` in the agent workspace.
+# Trigger evals stage a uniquely named copy in each temporary workspace so the
+# eval is isolated from the user's global skills and from other parallel runs.
+CURSOR_PROJECT_SKILLS_DIR = Path(".cursor") / "skills"
 EVAL_INSTALL_SUFFIX = "-eval-"
 
 
@@ -96,30 +92,20 @@ def _rewrite_skill_frontmatter_name(content: str, new_name: str) -> str:
     return "\n".join(lines)
 
 
-def install_skill_for_eval(skill_name: str, skill_path: Path, run_id: str) -> tuple[str, Path]:
-    """Install a copy of the repo skill into ~/.cursor/skills-cursor under a
-    unique name so cursor-agent advertises it to the model. Caller must call
-    uninstall_skill() in a finally block."""
+def install_skill_for_eval(
+    skill_name: str,
+    skill_path: Path,
+    workspace_dir: Path,
+    run_id: str,
+) -> tuple[str, Path]:
+    """Stage a copy of the repo skill in the temp workspace for cursor-agent."""
     install_name = "%s%s%s" % (skill_name, EVAL_INSTALL_SUFFIX, run_id)
-    install_dir = CLAUDE_SKILLS_DIR / install_name
+    install_dir = workspace_dir / CURSOR_PROJECT_SKILLS_DIR / install_name
     install_dir.mkdir(parents=True, exist_ok=True)
     content = (skill_path / "SKILL.md").read_text()
     rewritten = _rewrite_skill_frontmatter_name(content, install_name)
     (install_dir / "SKILL.md").write_text(rewritten)
     return install_name, install_dir
-
-
-def uninstall_skill(install_dir: Path) -> None:
-    shutil.rmtree(install_dir, ignore_errors=True)
-
-
-def sweep_stale_eval_skills() -> None:
-    """Remove orphaned `*-eval-*` skill dirs left by a previous crashed run."""
-    if not CLAUDE_SKILLS_DIR.exists():
-        return
-    for entry in CLAUDE_SKILLS_DIR.iterdir():
-        if entry.is_dir() and EVAL_INSTALL_SUFFIX in entry.name:
-            shutil.rmtree(entry, ignore_errors=True)
 
 
 ALL_SKILLS = [
@@ -177,8 +163,8 @@ def parse_skill_md(skill_path: Path) -> tuple:
 
 def run_single_trigger_query(
     query: str,
-    install_name: str,
     skill_name: str,
+    skill_path: Path,
     timeout: int,
     model: str = None,
 ) -> bool:
@@ -193,8 +179,14 @@ def run_single_trigger_query(
     Workspace is a throwaway temp dir so the nested agent cannot create files
     in the real repo root.
     """
-    workspace_dir = tempfile.mkdtemp(prefix="skills-eval-trigger-")
+    workspace_dir = Path(tempfile.mkdtemp(prefix="skills-eval-trigger-"))
     try:
+        install_name, _ = install_skill_for_eval(
+            skill_name,
+            skill_path,
+            workspace_dir,
+            uuid.uuid4().hex[:8],
+        )
         m = model or DEFAULT_CURSOR_MODEL
         cmd = [
             CURSOR_AGENT_BIN,
@@ -202,7 +194,7 @@ def run_single_trigger_query(
             "--output-format", "stream-json",
             "--trust",
             "--workspace",
-            workspace_dir,
+            str(workspace_dir),
             "--model",
             m,
             query,
@@ -214,7 +206,7 @@ def run_single_trigger_query(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            cwd=workspace_dir,
+            cwd=str(workspace_dir),
             env=env,
         )
         assert process.stdout is not None
@@ -305,50 +297,43 @@ def run_trigger_eval_for_skill(
     eval_set = json.loads(trigger_file.read_text())
     name, description, _ = parse_skill_md(skill_path)
 
-    run_id = uuid.uuid4().hex[:8]
-    install_name, install_dir = install_skill_for_eval(name, skill_path, run_id)
-
     if verbose:
         print("\n" + "=" * 60, file=sys.stderr)
         print("TRIGGER EVAL: %s" % skill_name, file=sys.stderr)
         print("Description: %s..." % description[:80], file=sys.stderr)
-        print("Installed as: %s" % install_name, file=sys.stderr)
         print("Queries: %d" % len(eval_set), file=sys.stderr)
         print("=" * 60, file=sys.stderr)
 
     t0 = time.time()
 
-    try:
-        # Run all queries in parallel
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            future_to_info = {}
-            for item in eval_set:
-                for run_idx in range(runs_per_query):
-                    future = executor.submit(
-                        run_single_trigger_query,
-                        item["query"],
-                        install_name,
-                        name,
-                        timeout,
-                        model,
-                    )
-                    future_to_info[future] = (item, run_idx)
+    # Run all queries in parallel
+    with ProcessPoolExecutor(max_workers=workers) as executor:
+        future_to_info = {}
+        for item in eval_set:
+            for run_idx in range(runs_per_query):
+                future = executor.submit(
+                    run_single_trigger_query,
+                    item["query"],
+                    name,
+                    skill_path,
+                    timeout,
+                    model,
+                )
+                future_to_info[future] = (item, run_idx)
 
-            query_triggers = {}
-            query_items = {}
-            for future in as_completed(future_to_info):
-                item, _ = future_to_info[future]
-                query = item["query"]
-                query_items[query] = item
-                if query not in query_triggers:
-                    query_triggers[query] = []
-                try:
-                    query_triggers[query].append(future.result())
-                except Exception as e:
-                    print("Warning: query failed: %s" % e, file=sys.stderr)
-                    query_triggers[query].append(False)
-    finally:
-        uninstall_skill(install_dir)
+        query_triggers = {}
+        query_items = {}
+        for future in as_completed(future_to_info):
+            item, _ = future_to_info[future]
+            query = item["query"]
+            query_items[query] = item
+            if query not in query_triggers:
+                query_triggers[query] = []
+            try:
+                query_triggers[query].append(future.result())
+            except Exception as e:
+                print("Warning: query failed: %s" % e, file=sys.stderr)
+                query_triggers[query].append(False)
 
     results = []
     for query, triggers in query_triggers.items():
@@ -929,7 +914,6 @@ def main():
 
     # Run trigger evals
     if run_trigger:
-        sweep_stale_eval_skills()
         print("Running trigger evaluations...", file=sys.stderr)
         for skill in args.skills:
             result = run_trigger_eval_for_skill(
