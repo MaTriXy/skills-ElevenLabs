@@ -1,0 +1,89 @@
+# Installation
+
+## Server Environment
+
+Set credentials on the server. Do not expose the ElevenLabs API key in browser code.
+
+```bash
+export ELEVENLABS_API_KEY="your-elevenlabs-api-key"
+export ELEVENLABS_SPEECH_ENGINE_ID="seng_..."
+export OPENAI_API_KEY="your-llm-provider-key"
+export OPENAI_MODEL="your-response-model"
+```
+
+For local development, expose the server publicly before creating the Speech Engine resource:
+
+```bash
+ngrok http 3001
+export PUBLIC_WS_URL="https://your-ngrok-domain.ngrok.app/ws"
+```
+
+The browser token endpoint shown in the quickstart also expects an agent ID:
+
+```bash
+export ELEVENLABS_AGENT_ID="agent_..."
+```
+
+## JavaScript / TypeScript
+
+Server dependencies:
+
+```bash
+npm install @elevenlabs/elevenlabs-js openai dotenv
+```
+
+If the server uses Express for the token endpoint:
+
+```bash
+npm install express
+npm install -D tsx @types/express
+```
+
+Browser clients:
+
+```bash
+npm install @elevenlabs/react
+# or, for vanilla browser JavaScript:
+npm install @elevenlabs/client
+```
+
+Always use `@elevenlabs/elevenlabs-js`, `@elevenlabs/react`, or `@elevenlabs/client`. Do not use the deprecated `elevenlabs` npm package.
+
+## Python
+
+Server dependencies:
+
+```bash
+pip install elevenlabs openai python-dotenv
+```
+
+If building the token endpoint in Flask:
+
+```bash
+pip install flask
+```
+
+Use the async SDK for Speech Engine servers:
+
+```python
+from elevenlabs import AsyncElevenLabs
+
+client = AsyncElevenLabs()
+```
+
+## Local Development Checklist
+
+- `ngrok http 3001` is running and points to the Speech Engine server port.
+- The Speech Engine resource was created with `ws_url` / `wsUrl` ending in `/ws`.
+- The server is listening on the same path, usually `/ws`.
+- The token endpoint runs server-side and returns a short-lived conversation token.
+- The browser asks for microphone permission before `startSession(...)`.
+- `debug: true` is enabled while developing so transcript and lifecycle issues are visible.
+
+## Production Notes
+
+- Replace ngrok with your public HTTPS host.
+- Keep the WebSocket path stable; updating the host requires updating or recreating the Speech Engine resource.
+- Store API keys in managed secrets.
+- Add shutdown handling so `SpeechEngineAttachment.close()` or the Python server process stops cleanly.
+- Pass TypeScript `AbortSignal` values to the LLM provider to cancel interrupted responses.
