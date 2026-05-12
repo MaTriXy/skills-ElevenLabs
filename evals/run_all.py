@@ -6,8 +6,8 @@ Functional evals run cursor-agent with workspace = each eval's scratch folder on
 SKILL.md files and the rest of the repo are not writable by the nested agent.
 
 Trigger evals run cursor-agent in an isolated temporary workspace directory (outside the repo),
-with a ``.claude/commands/`` tree created inside that temp workspace so nothing is written under
-the repo's own ``.claude/`` and the nested agent cannot create folders in the repo root.
+with the skill staged under that workspace's Cursor project skills directory so nothing is
+written under the real repo and the nested agent cannot create folders in the repo root.
 
 Usage:
     # Run everything
@@ -63,6 +63,51 @@ def _ensure_cursor_agent_available() -> None:
 
 
 _ensure_cursor_agent_available()
+
+# Cursor discovers project skills from `.cursor/skills/` in the agent workspace.
+# Trigger evals stage a uniquely named copy in each temporary workspace so the
+# eval is isolated from the user's global skills and from other parallel runs.
+CURSOR_PROJECT_SKILLS_DIR = Path(".cursor") / "skills"
+EVAL_INSTALL_SUFFIX = "-eval-"
+
+
+def _rewrite_skill_frontmatter_name(content: str, new_name: str) -> str:
+    """Rewrite the `name:` field in SKILL.md frontmatter so the installed copy
+    presents itself under its unique install name (otherwise cursor-agent may
+    dedupe against a same-named skill the user already has installed)."""
+    lines = content.split("\n")
+    if not lines or lines[0].strip() != "---":
+        return content
+    end_idx = None
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            end_idx = i
+            break
+    if end_idx is None:
+        return content
+    for i in range(1, end_idx):
+        if lines[i].startswith("name:"):
+            lines[i] = "name: %s" % new_name
+            break
+    return "\n".join(lines)
+
+
+def install_skill_for_eval(
+    skill_name: str,
+    skill_path: Path,
+    workspace_dir: Path,
+    run_id: str,
+) -> tuple[str, Path]:
+    """Stage a copy of the repo skill in the temp workspace for cursor-agent."""
+    install_name = "%s%s%s" % (skill_name, EVAL_INSTALL_SUFFIX, run_id)
+    install_dir = workspace_dir / CURSOR_PROJECT_SKILLS_DIR / install_name
+    install_dir.mkdir(parents=True, exist_ok=True)
+    content = (skill_path / "SKILL.md").read_text()
+    rewritten = _rewrite_skill_frontmatter_name(content, install_name)
+    (install_dir / "SKILL.md").write_text(rewritten)
+    return install_name, install_dir
+
+
 ALL_SKILLS = [
     "text-to-speech",
     "speech-to-text",
@@ -119,39 +164,29 @@ def parse_skill_md(skill_path: Path) -> tuple:
 def run_single_trigger_query(
     query: str,
     skill_name: str,
-    skill_description: str,
+    skill_path: Path,
     timeout: int,
     model: str = None,
 ) -> bool:
     """Run a single query and return whether the skill was triggered.
 
-    Uses a throwaway temp workspace (only ``.claude/commands/``) so the nested
-    agent cannot create files in the real repo root. Works with installed skills
-    (e.g. under ``~/.cursor`` / global config) and the temporary slash command.
+    cursor-agent has no dedicated `Skill` tool — invoking a skill is a plain
+    `readToolCall` against the skill's SKILL.md. We treat reading either the
+    eval install or the canonical-name install as the trigger signal: when the
+    user already has a same-name skill installed, cursor-agent often picks that
+    one instead, but since both share the same description that still
+    constitutes a true positive for the description being tested.
+    Workspace is a throwaway temp dir so the nested agent cannot create files
+    in the real repo root.
     """
-    unique_id = uuid.uuid4().hex[:8]
-    clean_name = "%s-skill-%s" % (skill_name, unique_id)
-
-    # Names to match: both the real skill name and the temp command name
-    match_names = {skill_name, clean_name}
-
-    workspace_dir = tempfile.mkdtemp(prefix="skills-eval-trigger-")
+    workspace_dir = Path(tempfile.mkdtemp(prefix="skills-eval-trigger-"))
     try:
-        project_commands_dir = Path(workspace_dir) / ".claude" / "commands"
-        project_commands_dir.mkdir(parents=True, exist_ok=True)
-        command_file = project_commands_dir / ("%s.md" % clean_name)
-
-        indented_desc = "\n  ".join(skill_description.split("\n"))
-        command_content = (
-            "---\n"
-            "description: |\n"
-            "  %s\n"
-            "---\n\n"
-            "# %s\n\n"
-            "This skill handles: %s\n"
-        ) % (indented_desc, skill_name, skill_description)
-        command_file.write_text(command_content)
-
+        install_name, _ = install_skill_for_eval(
+            skill_name,
+            skill_path,
+            workspace_dir,
+            uuid.uuid4().hex[:8],
+        )
         m = model or DEFAULT_CURSOR_MODEL
         cmd = [
             CURSOR_AGENT_BIN,
@@ -159,7 +194,7 @@ def run_single_trigger_query(
             "--output-format", "stream-json",
             "--trust",
             "--workspace",
-            workspace_dir,
+            str(workspace_dir),
             "--model",
             m,
             query,
@@ -171,7 +206,7 @@ def run_single_trigger_query(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
-            cwd=workspace_dir,
+            cwd=str(workspace_dir),
             env=env,
         )
         assert process.stdout is not None
@@ -191,28 +226,15 @@ def run_single_trigger_query(
             except json.JSONDecodeError:
                 return False
 
-            if event.get("type") == "assistant":
-                message = event.get("message", {})
-                for block in message.get("content", []):
-                    if block.get("type") != "tool_use":
-                        continue
-                    tool_name = block.get("name", "")
-                    tool_input = block.get("input", {})
-
-                    if tool_name == "Skill":
-                        skill_arg = tool_input.get("skill", "")
-                        if any(n in skill_arg for n in match_names):
-                            triggered = True
-
-                    elif tool_name == "Read":
-                        file_path = tool_input.get("file_path", "")
-                        if any(n in file_path for n in match_names):
-                            triggered = True
-
-                    elif tool_name == "ToolSearch":
-                        continue
-
-            elif event.get("type") == "result":
+            event_type = event.get("type")
+            if event_type == "tool_call":
+                tc = event.get("tool_call", {})
+                read_call = tc.get("readToolCall")
+                if read_call:
+                    path = read_call.get("args", {}).get("path", "")
+                    if "SKILL.md" in path and (install_name in path or ("/skills/%s/" % skill_name) in path):
+                        triggered = True
+            elif event_type == "result":
                 return True
 
             return triggered
@@ -293,7 +315,7 @@ def run_trigger_eval_for_skill(
                     run_single_trigger_query,
                     item["query"],
                     name,
-                    description,
+                    skill_path,
                     timeout,
                     model,
                 )
