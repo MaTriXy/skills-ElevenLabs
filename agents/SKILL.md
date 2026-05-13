@@ -448,27 +448,6 @@ client.conversational_ai.agents.delete(agent_id="your-agent-id")
 
 See [Agent Configuration](references/agent-configuration.md) for all configuration options and SDK examples.
 
-### Conversation Tags
-
-Use conversation tags to organize and filter conversation history:
-
-```python
-tag = client.conversational_ai.conversations.tags.create(
-    title="Urgent Support",
-    description="Conversations that need same-day follow-up",
-)
-
-client.conversational_ai.conversations.tags.assign(
-    conversation_id="conversation-id",
-    tag_ids=[tag.tag_id],
-)
-
-conversations = client.conversational_ai.conversations.list(
-    tag_ids=[tag.tag_id],
-    exclude_statuses=["initiated", "in-progress", "processing"],
-)
-```
-
 ## Error Handling
 
 ```python
