@@ -181,7 +181,7 @@ In TypeScript, pass the `AbortSignal` from `onTranscript` to the LLM request so 
 
 ## Browser Client
 
-Create a server-side token endpoint and have the browser request a token before starting the microphone session. The current client flow uses `conversationalAi.conversations.getWebrtcToken({ agentId })`; keep the agent ID and API key on the server.
+Create a server-side token endpoint and have the browser request a token before starting the microphone session. Keep the Speech Engine ID and API key on the server.
 
 ```typescript
 import express from "express";
@@ -193,7 +193,7 @@ const elevenlabs = new ElevenLabsClient();
 
 app.get("/api/token", async (_req, res) => {
   const response = await elevenlabs.conversationalAi.conversations.getWebrtcToken({
-    agentId: process.env.ELEVENLABS_AGENT_ID!,
+    agentId: process.env.ELEVENLABS_SPEECH_ENGINE_ID!,
   });
   res.json({ token: response.token });
 });

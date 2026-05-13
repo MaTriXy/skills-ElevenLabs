@@ -18,11 +18,7 @@ ngrok http 3001
 export PUBLIC_WS_URL="https://your-ngrok-domain.ngrok.app/ws"
 ```
 
-The browser token endpoint shown in the quickstart also expects an agent ID:
-
-```bash
-export ELEVENLABS_AGENT_ID="agent_..."
-```
+The browser token endpoint uses the same `ELEVENLABS_SPEECH_ENGINE_ID`.
 
 ## JavaScript / TypeScript
 
