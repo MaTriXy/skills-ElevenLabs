@@ -164,7 +164,6 @@ def parse_skill_md(skill_path: Path) -> tuple:
 
 def run_single_trigger_query(
     query: str,
-    install_name: str,
     skill_name: str,
     skill_path: Path,
     timeout: int,
@@ -299,14 +298,10 @@ def run_trigger_eval_for_skill(
     eval_set = json.loads(trigger_file.read_text())
     name, description, _ = parse_skill_md(skill_path)
 
-    run_id = uuid.uuid4().hex[:8]
-    install_name, install_dir = install_skill_for_eval(name, skill_path, run_id)
-
     if verbose:
         print("\n" + "=" * 60, file=sys.stderr)
         print("TRIGGER EVAL: %s" % skill_name, file=sys.stderr)
         print("Description: %s..." % description[:80], file=sys.stderr)
-        print("Installed as: %s" % install_name, file=sys.stderr)
         print("Queries: %d" % len(eval_set), file=sys.stderr)
         print("=" * 60, file=sys.stderr)
 
@@ -327,21 +322,19 @@ def run_trigger_eval_for_skill(
                 )
                 future_to_info[future] = (item, run_idx)
 
-            query_triggers = {}
-            query_items = {}
-            for future in as_completed(future_to_info):
-                item, _ = future_to_info[future]
-                query = item["query"]
-                query_items[query] = item
-                if query not in query_triggers:
-                    query_triggers[query] = []
-                try:
-                    query_triggers[query].append(future.result())
-                except Exception as e:
-                    print("Warning: query failed: %s" % e, file=sys.stderr)
-                    query_triggers[query].append(False)
-    finally:
-        uninstall_skill(install_dir)
+        query_triggers = {}
+        query_items = {}
+        for future in as_completed(future_to_info):
+            item, _ = future_to_info[future]
+            query = item["query"]
+            query_items[query] = item
+            if query not in query_triggers:
+                query_triggers[query] = []
+            try:
+                query_triggers[query].append(future.result())
+            except Exception as e:
+                print("Warning: query failed: %s" % e, file=sys.stderr)
+                query_triggers[query].append(False)
 
     results = []
     for query, triggers in query_triggers.items():
@@ -922,7 +915,6 @@ def main():
 
     # Run trigger evals
     if run_trigger:
-        sweep_stale_eval_skills()
         print("Running trigger evaluations...", file=sys.stderr)
         for skill in args.skills:
             result = run_trigger_eval_for_skill(
