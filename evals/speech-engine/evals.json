@@ -9,7 +9,7 @@
       "expectations": [
         "Uses 'from elevenlabs import AsyncElevenLabs'",
         "Gets the speech engine with client.speech_engine.get()",
-        "Calls engine.serve() with port=3001 and path='/ws'",
+        "Calls engine.serve with port 3001 and path /ws",
         "Defines an on_transcript callback that receives transcript and session",
         "Maps transcript messages with role 'agent' to 'assistant' before calling OpenAI",
         "Calls OpenAI Responses API with stream=True or otherwise creates a streamed LLM response",
@@ -26,7 +26,7 @@
         "Imports ElevenLabsClient from '@elevenlabs/elevenlabs-js'",
         "Does NOT import from the deprecated 'elevenlabs' npm package",
         "Creates or uses a Node HTTP server",
-        "Calls elevenlabs.speechEngine.attach() or engine.attach() with a speech engine ID and path '/ws'",
+        "Calls elevenlabs.speechEngine.attach or engine.attach with a speech engine ID and path /ws",
         "Defines async onTranscript(transcript, signal, session)",
         "Passes the provided signal to the LLM/OpenAI request",
         "Calls session.sendResponse(response) with a string or stream",
