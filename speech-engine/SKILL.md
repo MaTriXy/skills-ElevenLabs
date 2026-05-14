@@ -91,6 +91,8 @@ console.log(engine.engineId);
 
 `PUBLIC_WS_URL` should look like `https://example.ngrok.app/ws` locally or your production WebSocket route in deployment.
 
+The create request can also configure `tts`, `asr`, `turn`, `speech_engine.request_headers` / `speechEngine.requestHeaders`, and `privacy` for custom voices, transcription keywords, turn-taking, server auth headers, and recording behavior. See the SDK reference files for expanded examples.
+
 ## Server Examples
 
 ### Python

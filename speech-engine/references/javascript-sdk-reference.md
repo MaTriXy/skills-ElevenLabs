@@ -12,10 +12,33 @@ const elevenlabs = new ElevenLabsClient();
 
 ### Create
 
+Only `speechEngine.wsUrl` is required. Add optional config blocks when the Speech Engine needs custom voice, transcription, turn-taking, headers, or privacy behavior. The JavaScript SDK uses camelCase field names, so REST `tts.model_id`, `asr.user_input_audio_format`, and `turn.turn_eagerness` become `tts.modelId`, `asr.userInputAudioFormat`, and `turn.turnEagerness`.
+
 ```typescript
 const engine = await elevenlabs.speechEngine.create({
   name: "My Speech Engine",
-  speechEngine: { wsUrl: "https://example.com/ws" },
+  speechEngine: {
+    wsUrl: "https://example.com/ws",
+    requestHeaders: {
+      "x-agent-runtime": "openclaw",
+    },
+  },
+  tts: {
+    modelId: "eleven_flash_v2_5",
+    voiceId: "cjVigY5qzO86Huf0OWal",
+    optimizeStreamingLatency: "2",
+  },
+  asr: {
+    provider: "scribe_realtime",
+    keywords: ["OpenClaw", "Acme Cloud"],
+  },
+  turn: {
+    turnEagerness: "normal",
+    speculativeTurn: true,
+  },
+  privacy: {
+    recordVoice: false,
+  },
 });
 
 console.log(engine.engineId);
