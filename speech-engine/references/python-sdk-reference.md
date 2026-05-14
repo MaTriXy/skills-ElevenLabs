@@ -18,7 +18,7 @@ engine = await elevenlabs.speech_engine.create(
     speech_engine={"ws_url": "https://example.com/ws"},
 )
 
-print(engine.speech_engine_id)
+print(engine.engine_id)
 ```
 
 ### Get
