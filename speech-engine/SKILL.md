@@ -66,7 +66,7 @@ async def main():
         name="My Speech Engine",
         speech_engine={"ws_url": os.environ["PUBLIC_WS_URL"]},
     )
-    print(engine.speech_engine_id)
+    print(engine.engine_id)
 
 asyncio.run(main())
 ```
@@ -86,7 +86,7 @@ const engine = await elevenlabs.speechEngine.create({
   speechEngine: { wsUrl: process.env.PUBLIC_WS_URL! },
 });
 
-console.log(engine.speechEngineId);
+console.log(engine.engineId);
 ```
 
 `PUBLIC_WS_URL` should look like `https://example.ngrok.app/ws` locally or your production WebSocket route in deployment.
