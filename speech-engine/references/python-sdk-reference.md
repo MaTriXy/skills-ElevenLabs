@@ -65,6 +65,34 @@ await engine.serve(
 )
 ```
 
+Complete standalone example:
+
+```python
+import asyncio
+import os
+
+from dotenv import load_dotenv
+from elevenlabs import AsyncElevenLabs
+
+load_dotenv()
+
+elevenlabs = AsyncElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+
+async def on_transcript(transcript, session):
+    await session.send_response("Hello, how can I help?")
+
+async def main():
+    engine = await elevenlabs.speech_engine.get(os.environ["ELEVENLABS_SPEECH_ENGINE_ID"])
+    await engine.serve(
+        port=3001,
+        path="/ws",
+        debug=True,
+        on_transcript=on_transcript,
+    )
+
+asyncio.run(main())
+```
+
 Key parameters:
 
 | Parameter | Default | Purpose |

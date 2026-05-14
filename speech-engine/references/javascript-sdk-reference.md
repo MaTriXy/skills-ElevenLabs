@@ -130,6 +130,23 @@ session.on("user_transcript", (transcript, signal) => {
 
 Use a standalone Speech Engine server when the process only handles Speech Engine connections. Use `attach()` when integrating with Express, Fastify, or an existing Node HTTP server.
 
+```typescript
+import { SpeechEngine } from "@elevenlabs/elevenlabs-js";
+import "dotenv/config";
+
+const server = new SpeechEngine.Server({
+  port: 3001,
+  apiKey: process.env.ELEVENLABS_API_KEY,
+  engineId: process.env.ELEVENLABS_SPEECH_ENGINE_ID!,
+  debug: true,
+  async onTranscript(transcript, signal, session) {
+    session.sendResponse("Hello, how can I help?");
+  },
+});
+
+server.start();
+```
+
 Core options are:
 
 | Option | Default | Purpose |
