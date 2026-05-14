@@ -1,6 +1,6 @@
 ---
 name: speech-engine
-description: Add real-time voice conversations to a custom LLM or chat agent with ElevenLabs Speech Engine. Use when building Speech Engine servers, WebSocket handlers, WebRTC browser clients, conversation token endpoints, interruption-aware streaming responses, or voice-enabled chat agents that connect a developer-owned LLM to ElevenLabs speech-to-text and text-to-speech.
+description: Add real-time voice conversations to a custom LLM, OpenClaw, or similar agent runtime with ElevenLabs Speech Engine. Use when building Speech Engine servers, WebSocket handlers, WebRTC browser clients, conversation token endpoints, interruption-aware streaming responses, or voice-enabled chat agents that connect a developer-owned LLM to ElevenLabs speech-to-text and text-to-speech.
 license: MIT
 compatibility: Requires internet access, an ElevenLabs API key (ELEVENLABS_API_KEY), and usually an LLM API key such as OPENAI_API_KEY.
 metadata: {"openclaw": {"requires": {"env": ["ELEVENLABS_API_KEY"]}, "primaryEnv": "ELEVENLABS_API_KEY"}}
@@ -17,6 +17,7 @@ Add a real-time voice interface to a custom LLM-backed agent. ElevenLabs handles
 Use Speech Engine when the user wants to:
 
 - Add voice to an existing chat app or custom LLM pipeline
+- Add voice to OpenClaw, Hermes, or a similar agent runtime while keeping agent logic on the developer-owned server
 - Build a developer-hosted WebSocket server for ElevenLabs voice conversations
 - Stream OpenAI, Anthropic, Gemini, or custom LLM responses back as spoken audio
 - Handle user interruptions while an LLM response is still streaming
