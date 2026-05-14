@@ -54,9 +54,12 @@ The returned `SpeechEngineResource` has `engineId` plus methods for attaching to
 
 ### Attach
 
-Attach Speech Engine WebSocket handling to an existing Node HTTP server:
+Attach Speech Engine WebSocket handling to an existing Node HTTP server. `httpServer` is a Node `http.Server`, such as one created with `createServer(...)` directly or by a framework custom server.
 
 ```typescript
+import { createServer } from "node:http";
+
+const httpServer = createServer();
 const attachment = engine.attach(httpServer, "/ws", {
   debug: true,
   onTranscript(transcript, signal, session) {
@@ -72,6 +75,35 @@ await elevenlabs.speechEngine.attach("seng_...", httpServer, "/ws", callbacks);
 ```
 
 `attach()` handles WebSocket upgrades, path routing, and request verification. Call `await attachment.close()` to stop accepting Speech Engine connections without shutting down the HTTP server.
+
+For a Next.js custom server, attach Speech Engine to the same HTTP server that handles the app:
+
+```typescript
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { createServer } from "node:http";
+import next from "next";
+import "dotenv/config";
+
+const dev = process.env.NODE_ENV !== "production";
+const app = next({ dev });
+const elevenlabs = new ElevenLabsClient({
+  apiKey: process.env.ELEVENLABS_API_KEY,
+});
+
+await app.prepare();
+
+const httpServer = createServer(app.getRequestHandler());
+const engine = await elevenlabs.speechEngine.get(process.env.ELEVENLABS_SPEECH_ENGINE_ID!);
+
+engine.attach(httpServer, "/ws", {
+  debug: true,
+  async onTranscript(transcript, signal, session) {
+    session.sendResponse("Hello from the same Next.js server.");
+  },
+});
+
+httpServer.listen(3001);
+```
 
 ### verifyRequest
 

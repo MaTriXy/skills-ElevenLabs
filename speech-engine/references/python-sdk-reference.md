@@ -90,12 +90,43 @@ It checks `X-Elevenlabs-Speech-Engine-Authorization` against a JWT signed with t
 
 ### create_session
 
-Wrap an accepted WebSocket for custom integrations such as FastAPI or Starlette:
+Wrap an accepted WebSocket for custom integrations such as FastAPI or Starlette. `websocket` is the framework WebSocket connection object accepted by your app route, not the Speech Engine URL.
 
 ```python
 session = engine.create_session(websocket, debug=True)
 session.on("user_transcript", handle_transcript)
 await session.run()
+```
+
+For a FastAPI app, handle `/ws` in the existing server and wrap that connection with Speech Engine:
+
+```python
+import os
+
+from dotenv import load_dotenv
+from elevenlabs import AsyncElevenLabs
+from fastapi import FastAPI, WebSocket, status
+
+load_dotenv()
+
+app = FastAPI()
+elevenlabs = AsyncElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
+
+async def on_transcript(transcript, session):
+    await session.send_response("Hello from the same FastAPI server.")
+
+@app.websocket("/ws")
+async def speech_engine_websocket(websocket: WebSocket):
+    engine = await elevenlabs.speech_engine.get(os.environ["ELEVENLABS_SPEECH_ENGINE_ID"])
+
+    if not engine.verify_request(dict(websocket.headers)):
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await websocket.accept()
+    session = engine.create_session(websocket, debug=True)
+    session.on("user_transcript", on_transcript)
+    await session.run()
 ```
 
 ## Session API
