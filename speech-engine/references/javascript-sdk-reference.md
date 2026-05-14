@@ -18,7 +18,7 @@ const engine = await elevenlabs.speechEngine.create({
   speechEngine: { wsUrl: "https://example.com/ws" },
 });
 
-console.log(engine.speechEngineId);
+console.log(engine.engineId);
 ```
 
 ### Get
