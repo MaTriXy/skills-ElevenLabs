@@ -12,10 +12,33 @@ elevenlabs = AsyncElevenLabs()
 
 ### Create
 
+Only `speech_engine.ws_url` is required. Add optional config blocks when the Speech Engine needs custom voice, transcription, turn-taking, headers, or privacy behavior.
+
 ```python
 engine = await elevenlabs.speech_engine.create(
     name="My Speech Engine",
-    speech_engine={"ws_url": "https://example.com/ws"},
+    speech_engine={
+        "ws_url": "https://example.com/ws",
+        "request_headers": {
+            "x-agent-runtime": "openclaw",
+        },
+    },
+    tts={
+        "model_id": "eleven_flash_v2_5",
+        "voice_id": "cjVigY5qzO86Huf0OWal",
+        "optimize_streaming_latency": "2",
+    },
+    asr={
+        "provider": "scribe_realtime",
+        "keywords": ["OpenClaw", "Acme Cloud"],
+    },
+    turn={
+        "turn_eagerness": "normal",
+        "speculative_turn": True,
+    },
+    privacy={
+        "record_voice": False,
+    },
 )
 
 print(engine.engine_id)
