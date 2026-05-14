@@ -111,6 +111,7 @@ def install_skill_for_eval(
 ALL_SKILLS = [
     "text-to-speech",
     "speech-to-text",
+    "speech-engine",
     "agents",
     "sound-effects",
     "music",
@@ -583,6 +584,7 @@ def find_forbidden_reference(response_text: str, term: str) -> str | None:
 def check_expectation(response_lower, response_text, expectation):
     """Check a single expectation against the response. Returns (passed, evidence)."""
     exp_lower = expectation.lower()
+    negative_terms = extract_negative_terms(expectation)
 
     # Negative deprecation checks must run before generic "from elevenlabs import" pattern
     # matching; otherwise expectations that quote the forbidden import pass incorrectly.
@@ -596,9 +598,12 @@ def check_expectation(response_lower, response_text, expectation):
         found_deprecated = [p for p in deprecated_patterns if p in response_lower]
         if found_deprecated:
             return False, "Found deprecated pattern: %s" % found_deprecated[0]
+        for term in negative_terms:
+            forbidden_match = find_forbidden_reference(response_text, term)
+            if forbidden_match:
+                return False, "Found forbidden reference: %s" % forbidden_match
         return True, "No deprecated patterns found"
 
-    negative_terms = extract_negative_terms(expectation)
     for term in negative_terms:
         forbidden_match = find_forbidden_reference(response_text, term)
         if forbidden_match:
