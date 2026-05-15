@@ -7,8 +7,6 @@ Set credentials on the server. Do not expose the ElevenLabs API key in browser c
 ```bash
 export ELEVENLABS_API_KEY="your-elevenlabs-api-key"
 export ELEVENLABS_SPEECH_ENGINE_ID="seng_..."
-export OPENAI_API_KEY="your-llm-provider-key"
-export OPENAI_MODEL="your-response-model"
 ```
 
 For local development, expose the server publicly before creating the Speech Engine resource:
@@ -25,7 +23,7 @@ The browser token endpoint uses the same `ELEVENLABS_SPEECH_ENGINE_ID`.
 Server dependencies:
 
 ```bash
-npm install @elevenlabs/elevenlabs-js openai dotenv
+npm install @elevenlabs/elevenlabs-js dotenv
 ```
 
 If the server uses Express for the token endpoint:
@@ -64,7 +62,7 @@ Always use `@elevenlabs/elevenlabs-js`, `@elevenlabs/react`, or `@elevenlabs/cli
 Server dependencies:
 
 ```bash
-pip install elevenlabs openai python-dotenv
+pip install elevenlabs python-dotenv
 ```
 
 If building the token endpoint in Flask:
@@ -96,4 +94,4 @@ client = AsyncElevenLabs()
 - Keep the WebSocket path stable; updating the host requires updating or recreating the Speech Engine resource.
 - Store API keys in managed secrets.
 - Add shutdown handling so `SpeechEngineAttachment.close()` or the Python server process stops cleanly.
-- Pass TypeScript `AbortSignal` values to the LLM provider to cancel interrupted responses.
+- Pass TypeScript `AbortSignal` values to downstream async work to cancel interrupted responses.

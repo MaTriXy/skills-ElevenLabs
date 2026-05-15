@@ -12,7 +12,7 @@ elevenlabs = AsyncElevenLabs()
 
 ### Create
 
-Only `speech_engine.ws_url` is required. Add optional config blocks when the Speech Engine needs custom voice, transcription, turn-taking, headers, or privacy behavior.
+Only `speech_engine.ws_url` is required. Add optional config blocks when the Speech Engine needs custom voice, speech recognition, turn-taking, request headers, or privacy behavior.
 
 ```python
 engine = await elevenlabs.speech_engine.create(
@@ -50,47 +50,15 @@ print(engine.engine_id)
 engine = await elevenlabs.speech_engine.get("seng_...")
 ```
 
-The returned `SpeechEngineResource` has `engine_id` plus methods for serving, request verification, and manual session creation.
+The returned resource has an engine ID plus helpers for serving Speech Engine traffic from a trusted Python process.
 
-### serve
+### Serve
 
-Start a standalone WebSocket server and block until stopped:
-
-```python
-await engine.serve(
-    port=3001,
-    path="/ws",
-    debug=True,
-    on_transcript=handle_transcript,
-)
-```
-
-Complete standalone example:
+Run a Speech Engine server on the configured WebSocket path. Keep response generation behind a validation boundary so raw speech-recognition text does not directly control responses, tools, secrets, or privileged actions.
 
 ```python
-import asyncio
-import os
-
-from dotenv import load_dotenv
-from elevenlabs import AsyncElevenLabs
-
-load_dotenv()
-
-elevenlabs = AsyncElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
-
-async def on_transcript(transcript, session):
-    await session.send_response("Hello, how can I help?")
-
-async def main():
-    engine = await elevenlabs.speech_engine.get(os.environ["ELEVENLABS_SPEECH_ENGINE_ID"])
-    await engine.serve(
-        port=3001,
-        path="/ws",
-        debug=True,
-        on_transcript=on_transcript,
-    )
-
-asyncio.run(main())
+engine = await elevenlabs.speech_engine.get(os.environ["ELEVENLABS_SPEECH_ENGINE_ID"])
+await engine.serve(port=3001, path="/ws", debug=True, callbacks=validated_callbacks)
 ```
 
 Key parameters:
@@ -99,12 +67,7 @@ Key parameters:
 | --- | --- | --- |
 | `port` | `3001` | Port to listen on |
 | `path` | `None` | Restrict WebSocket connections to one path |
-| `debug` | `False` | Log protocol details to stdout |
-| `on_init` | | Session initialized callback |
-| `on_transcript` | | User transcript callback |
-| `on_close` | | Clean disconnect callback |
-| `on_disconnect` | | Unexpected drop callback |
-| `on_error` | | Error callback |
+| `debug` | `False` | Log protocol details while developing |
 
 ### verify_request
 
@@ -116,103 +79,24 @@ is_valid = engine.verify_request(headers)
 
 It checks `X-Elevenlabs-Speech-Engine-Authorization` against a JWT signed with the SHA-256 hash of the ElevenLabs API key.
 
-### create_session
-
-Wrap an accepted WebSocket for custom integrations such as FastAPI or Starlette. `websocket` is the framework WebSocket connection object accepted by your app route, not the Speech Engine URL.
-
-```python
-session = engine.create_session(websocket, debug=True)
-session.on("user_transcript", handle_transcript)
-await session.run()
-```
-
-For a FastAPI app, handle `/ws` in the existing server and wrap that connection with Speech Engine:
-
-```python
-import os
-
-from dotenv import load_dotenv
-from elevenlabs import AsyncElevenLabs
-from fastapi import FastAPI, WebSocket, status
-
-load_dotenv()
-
-app = FastAPI()
-elevenlabs = AsyncElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
-
-async def on_transcript(transcript, session):
-    await session.send_response("Hello from the same FastAPI server.")
-
-@app.websocket("/ws")
-async def speech_engine_websocket(websocket: WebSocket):
-    engine = await elevenlabs.speech_engine.get(os.environ["ELEVENLABS_SPEECH_ENGINE_ID"])
-
-    if not engine.verify_request(dict(websocket.headers)):
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-        return
-
-    await websocket.accept()
-    session = engine.create_session(websocket, debug=True)
-    session.on("user_transcript", on_transcript)
-    await session.run()
-```
-
 ## Session API
 
-Each `SpeechEngineSession` represents one conversation.
+Each Speech Engine session represents one conversation.
 
 | Member | Purpose |
 | --- | --- |
-| `conversation_id` | Assigned after `init` |
+| `conversation_id` | Assigned after initialization |
 | `is_open` | Whether the WebSocket is open |
-| `on(event, handler)` | Register an event handler |
-| `off(event, handler)` | Remove an event handler |
-| `once(event, handler)` | Register a one-time handler |
-| `send_response(response)` | Send LLM text or stream back for TTS |
+| `send_response(response)` | Send response text or a text stream back for TTS |
 | `run()` | Run the receive loop for manual sessions |
 | `close()` | Close the WebSocket |
 
-`send_response()` must be called from an `on_transcript` flow. It accepts a string or async iterable and can extract text from OpenAI Responses, OpenAI Chat Completions, Anthropic Messages, and Google Gemini stream events.
+`send_response()` accepts a string or async iterable of response text.
 
-When a new transcript arrives, the SDK cancels the previous transcript handler so interrupted responses stop naturally.
+## Safety
 
-## Callbacks
-
-Handlers can be synchronous functions or async coroutine functions.
-
-| Callback | Signature | Purpose |
-| --- | --- | --- |
-| `on_init` | `(conversation_id, session) -> None` | Session initialized |
-| `on_transcript` | `(transcript, session) -> None` | User speech transcribed |
-| `on_close` | `(session) -> None` | Clean disconnect |
-| `on_disconnect` | `(session) -> None` | Unexpected drop |
-| `on_error` | `(error, session) -> None` | Protocol or WebSocket error |
-
-## Events
-
-When using `session.on()` directly:
-
-| Event | Handler |
-| --- | --- |
-| `user_transcript` | `(transcript) -> None` |
-| `init` | `(conversation_id) -> None` |
-| `close` | `() -> None` |
-| `disconnected` | `() -> None` |
-| `error` | `(error) -> None` |
-
-Event constants are available from `elevenlabs.speech_engine`.
-
-Transcript messages have:
-
-| Property | Type | Notes |
-| --- | --- | --- |
-| `role` | `"user"` or `"agent"` | Convert `"agent"` to `"assistant"` for OpenAI-style APIs |
-| `content` | `str` | Message text |
+Speech-recognition text is untrusted user-controlled data. Validate intent with deterministic checks, allowlists, or explicit confirmation before it affects response generation, tool calls, secrets, or privileged workflows.
 
 ## Wire Protocol
 
-The SDK handles protocol details automatically, but manual integrations should know these message types:
-
-Incoming from ElevenLabs: `init`, `user_transcript`, `ping`, `close`, `error`.
-
-Outgoing from your server: `agent_response` chunks and `pong`.
+The SDK handles protocol details automatically. Outgoing messages from your server are response text chunks and connection keep-alives.
